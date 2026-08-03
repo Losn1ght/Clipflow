@@ -1,26 +1,221 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-app-sans);
+  --font-mono: var(--font-app-mono);
+  --font-heading: var(--font-display);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-positive: var(--positive);
+  --color-positive-foreground: var(--positive-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  color-scheme: dark;
+  /* SF Pro is used where the OS provides it; fallbacks preserve the system style elsewhere. */
+  --font-app-sans: "SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-app-mono: "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
+  --font-display: "Space Grotesk", var(--font-app-sans);
+
+  /* Night Splice — light-mode fallback (app renders dark-only, kept for completeness) */
+  --room: oklch(0.97 0.006 95);
+  --paper: oklch(1 0 0);
+  --ink: oklch(0.16 0.014 265);
+  --splice: oklch(0.665 0.2 33.5);
+  --tungsten: oklch(0.77 0.14 68);
+  --dim: oklch(0.46 0.02 265);
+
+  --background: var(--room);
+  --foreground: var(--ink);
+  --card: var(--paper);
+  --card-foreground: var(--ink);
+  --popover: var(--paper);
+  --popover-foreground: var(--ink);
+  --primary: var(--splice);
+  --primary-foreground: oklch(0.99 0.01 90);
+  --secondary: oklch(0.93 0.006 95);
+  --secondary-foreground: var(--ink);
+  --muted: oklch(0.93 0.006 95);
+  --muted-foreground: var(--dim);
+  --accent: oklch(0.93 0.006 95);
+  --accent-foreground: var(--ink);
+  --destructive: oklch(0.62 0.21 25);
+  --warning: var(--tungsten);
+  --warning-foreground: oklch(0.16 0.014 265);
+  --positive: oklch(0.72 0.19 149);
+  --positive-foreground: oklch(0.99 0.01 90);
+  --border: oklch(0.16 0.014 265 / 10%);
+  --input: oklch(0.16 0.014 265 / 12%);
+  --ring: var(--splice);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  /* Night Splice — a cutting room at 2am */
+  --room: oklch(0.2008 0.0124 270.73);      /* #14161C */
+  --paper: oklch(0.2445 0.0178 270.59);     /* #1D2029 */
+  --ink: oklch(0.9397 0.0096 93.57);        /* #EDEBE4 */
+  --splice: oklch(0.6839 0.2069 33.86);     /* #FF5A36 */
+  --tungsten: oklch(0.7649 0.1399 72.95);   /* #E8A33D */
+  --dim: oklch(0.6056 0.0294 273.83);       /* #7C8194 */
+
+  --background: var(--room);
+  --foreground: var(--ink);
+  --card: var(--paper);
+  --card-foreground: var(--ink);
+  --popover: var(--paper);
+  --popover-foreground: var(--ink);
+  --primary: var(--splice);
+  --primary-foreground: var(--room);
+  --secondary: oklch(0.28 0.016 265);
+  --secondary-foreground: var(--ink);
+  --muted: oklch(0.26 0.015 265);
+  --muted-foreground: var(--dim);
+  --accent: oklch(0.28 0.016 265);
+  --accent-foreground: var(--ink);
+  --destructive: oklch(0.6368 0.2078 25.33); /* #EF4444 — cold red, distinct from --splice */
+  --warning: var(--tungsten);
+  --warning-foreground: var(--room);
+  --positive: oklch(0.792 0.209 151.71); /* emerald green — distinct from --splice/--tungsten */
+  --positive-foreground: var(--room);
+  --border: color-mix(in oklch, var(--ink) 10%, transparent);
+  --input: color-mix(in oklch, var(--ink) 14%, transparent);
+  --ring: var(--splice);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  /* Eyebrow labels — section identity tags ("INVENTORY LOG", "CUTTING QUEUE") */
+  .eyebrow {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 0.6875rem;
+    line-height: 1;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+
+  /* Timecode register — every quantity/time value renders through this convention */
+  .timecode {
+    font-family: var(--font-app-mono);
+    letter-spacing: 0.04em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Slate mark — clapperboard corner registration ticks on key log cards */
+  .slate-mark {
+    position: relative;
+  }
+  .slate-mark::before,
+  .slate-mark::after {
+    content: "";
+    position: absolute;
+    width: 11px;
+    height: 11px;
+    pointer-events: none;
+    z-index: 1;
+  }
+  .slate-mark::before {
+    top: 9px;
+    left: 9px;
+    border-top: 1.5px solid var(--dim);
+    border-left: 1.5px solid var(--dim);
+    opacity: 0.4;
+  }
+  .slate-mark::after {
+    bottom: 9px;
+    right: 9px;
+    border-bottom: 1.5px solid var(--splice);
+    border-right: 1.5px solid var(--splice);
+    opacity: 0.4;
+  }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+

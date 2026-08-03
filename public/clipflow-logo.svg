@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Clipflow icon</title>
+  <desc id="desc">Layered play and workflow mark with an emerald flow accent.</desc>
+  <g fill="none" stroke="#F4F5F2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M121 91L399 256L121 421" stroke-width="62"/>
+    <path d="M121 183L244 256L121 329" stroke-width="52"/>
+  </g>
+  <path d="M337 321L399 284V346L337 383Z" fill="#22C77A"/>
+</svg>

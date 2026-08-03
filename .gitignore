@@ -36,6 +36,12 @@ yarn-error.log*
 # vercel
 .vercel
 
+# supabase (schema/migrations kept local only, not tracked in this repo)
+/supabase
+
+# oh-my-claudecode local session/state data
+/.omc
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
