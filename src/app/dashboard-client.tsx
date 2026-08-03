@@ -62,6 +62,19 @@ function formatBudget(budget: number) {
   return Number.isInteger(budget) ? `$${budget}` : `$${budget.toFixed(2)}`;
 }
 
+// Only ever render a value as a clickable href if it's actually a safe http(s)
+// URL — some fields (e.g. campaign "Requirements") are free text by design, and
+// stored values could otherwise reach the DOM as a javascript:/data: URI.
+function safeHref(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 // Custom keyboard coordinate getter: the board's columns are separate droppable
 // zones (not a single sortable list), so dnd-kit's default coordinate getter
 // (which just nudges by pixels) can't hop a task between them. This mirrors
@@ -432,7 +445,7 @@ export function DashboardClient({
                   <p className="text-sm text-muted-foreground">No campaigns yet.</p>
                 ) : (
                   campaigns.map((campaign) => {
-                    const href = campaign.requirementsUrl || campaign.submissionUrl;
+                    const href = safeHref(campaign.requirementsUrl) ?? safeHref(campaign.submissionUrl);
                     const label = `${campaign.name}${campaign.accountNames.length ? ` · ${campaign.accountNames.join(", ")}` : ""}`;
                     return (
                       <div key={campaign.id} className="flex items-center justify-between gap-2 rounded-lg border border-border bg-background/50 p-3 text-sm">
@@ -447,9 +460,9 @@ export function DashboardClient({
                           {(campaign.platformName || campaign.budget !== null || campaign.endsOn) && (
                             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
                               {campaign.platformName && (
-                                campaign.platformUrl ? (
+                                safeHref(campaign.platformUrl) ? (
                                   <a
-                                    href={campaign.platformUrl}
+                                    href={safeHref(campaign.platformUrl)!}
                                     target="_blank"
                                     rel="noreferrer"
                                     className="underline-offset-2 outline-none transition hover:text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/50"
@@ -723,10 +736,10 @@ function TaskCard({
                 <p className="text-xs text-muted-foreground">Account · Campaign</p>
                 <p>{[task.accountName, task.campaignName].filter(Boolean).join(" · ") || "Unassigned"}</p>
               </div>
-              {task.externalUrl && (
+              {safeHref(task.externalUrl) && (
                 <div>
                   <p className="text-xs text-muted-foreground">Link</p>
-                  <a href={task.externalUrl} target="_blank" rel="noreferrer" className="text-primary underline-offset-4 hover:underline">
+                  <a href={safeHref(task.externalUrl)!} target="_blank" rel="noreferrer" className="text-primary underline-offset-4 hover:underline">
                     {task.externalUrl}
                   </a>
                 </div>

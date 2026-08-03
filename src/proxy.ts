@@ -9,9 +9,16 @@ export async function proxy(request: NextRequest) {
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   const ownerId = process.env.CANONICAL_OWNER_ID;
 
-  // Keep local builds usable until deployment secrets are configured.
-  if (!url || !key || !ownerId || publicPaths.has(request.nextUrl.pathname)) {
+  if (publicPaths.has(request.nextUrl.pathname)) {
     return response;
+  }
+
+  // Fail closed: if required env vars are missing, don't silently skip the auth
+  // check — send the request to /login instead of letting it through.
+  if (!url || !key || !ownerId) {
+    const destination = request.nextUrl.clone();
+    destination.pathname = "/login";
+    return NextResponse.redirect(destination);
   }
 
   const supabase = createServerClient(url, key, {
@@ -36,5 +43,9 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // api/cron/* is excluded here (not added to publicPaths, which would read as
+  // "no auth needed") — it has its own CRON_SECRET bearer-token check in the
+  // route handler, and Vercel Cron never sends a session cookie, so this
+  // middleware's owner check would otherwise redirect every scheduled run.
+  matcher: ["/((?!api/cron|_next/static|_next/image|favicon.ico).*)"],
 };
