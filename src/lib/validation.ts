@@ -2,7 +2,10 @@ import { z } from "zod";
 
 export const clipTargetSchema = z.int().min(3).max(6);
 export const lowStockDaysSchema = z.int().min(1).max(30);
-export const optionalUrlSchema = z.url().max(2_048).optional().or(z.literal(""));
+// z.url() alone accepts javascript:/data:/vbscript: URIs — pin the protocol so a
+// stored value can never execute when later rendered as an <a href>.
+const httpUrlSchema = z.url({ protocol: /^https?$/, hostname: z.regexes.domain }).max(2_048);
+export const optionalUrlSchema = httpUrlSchema.optional().or(z.literal(""));
 export const taskStatusSchema = z.enum(["backlog", "in_progress", "review", "done"]);
 export const warmupDaySchema = z.enum(["day_1", "day_2", "day_3_plus"]);
 export const warmupMetricSchema = z.enum(["likes", "comments", "reposts", "follows", "links"]);
@@ -15,8 +18,10 @@ export const accountInputSchema = z.object({
 
 export const campaignInputSchema = z.object({
   name: z.string().trim().min(1).max(160),
+  // Free text by design (not just a URL) — see safeHref() at the render site,
+  // which is what actually prevents this from ever executing as a link.
   requirementsUrl: z.string().trim().max(2_048).optional().or(z.literal("")),
-  submissionUrl: z.url().max(2_048),
+  submissionUrl: httpUrlSchema,
   budget: z.coerce.number().min(0).optional(),
   platformId: z.uuid().nullable().optional(),
   endsOn: z.iso.date().optional().or(z.literal("")),
@@ -24,7 +29,7 @@ export const campaignInputSchema = z.object({
 
 export const platformInputSchema = z.object({
   name: z.string().trim().min(1).max(100),
-  url: z.url().max(2_048),
+  url: httpUrlSchema,
 });
 
 export const driveFolderMappingInputSchema = z.object({

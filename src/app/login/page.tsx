@@ -20,7 +20,9 @@ export default function LoginPage() {
       const supabase = createClient();
       const { error } = await supabase.auth.signInWithOtp({
         email,
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+        // Never provision new users from this public form — only the pre-provisioned
+        // canonical owner should ever be able to sign in.
+        options: { shouldCreateUser: false, emailRedirectTo: `${window.location.origin}/auth/callback` },
       });
       setMessage(error ? "Unable to send a sign-in link." : "Check your email for the sign-in link.");
     } finally {
