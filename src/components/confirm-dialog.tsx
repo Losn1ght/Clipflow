@@ -42,7 +42,7 @@ export function ConfirmDialog({
       try {
         await onConfirm();
         setOpen(false);
-        if (successMessage) toast.add({ title: successMessage });
+        if (successMessage) toast.add({ title: successMessage, type: "success" });
       } catch {
         setError("Something went wrong. Please try again.");
       }

@@ -9,9 +9,14 @@ import { runSyncForAllMappings } from "@/lib/drive-sync";
 import {
   accountInputSchema,
   campaignInputSchema,
+  clipTargetOptionsSchema,
   driveFolderMappingInputSchema,
+  lowStockDayOptionsSchema,
   lowStockDaysSchema,
   platformInputSchema,
+  promptInputSchema,
+  resourceInputSchema,
+  subscriptionInputSchema,
   taskInputSchema,
   taskStatusSchema,
 } from "@/lib/validation";
@@ -131,6 +136,16 @@ export async function archiveAccount(accountId: string) {
   revalidatePath("/");
 }
 
+export async function restoreAccount(accountId: string) {
+  const id = idSchema.parse(accountId);
+  const { supabase } = await requireOwner();
+
+  const { error } = await supabase.from("accounts").update({ archived_at: null }).eq("id", id);
+  if (error) throw new Error("Unable to restore account.");
+
+  revalidatePath("/");
+}
+
 // ---------------------------------------------------------------------------
 // Drive folder mappings
 // ---------------------------------------------------------------------------
@@ -233,6 +248,16 @@ export async function archiveCampaign(campaignId: string) {
   revalidatePath("/");
 }
 
+export async function restoreCampaign(campaignId: string) {
+  const id = idSchema.parse(campaignId);
+  const { supabase } = await requireOwner();
+
+  const { error } = await supabase.from("campaigns").update({ archived_at: null }).eq("id", id);
+  if (error) throw new Error("Unable to restore campaign.");
+
+  revalidatePath("/");
+}
+
 const accountCampaignLinkSchema = z.object({
   accountId: z.uuid(),
   campaignId: z.uuid(),
@@ -309,6 +334,221 @@ export async function deletePlatform(platformId: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Subscriptions
+// ---------------------------------------------------------------------------
+
+export async function createSubscription(rawInput: unknown) {
+  const input = subscriptionInputSchema.parse(rawInput);
+  const { supabase } = await requireOwner();
+
+  const { error } = await supabase.from("subscriptions").insert({
+    name: input.name,
+    cost: input.cost,
+    billing_cycle: input.billingCycle,
+    renews_on: input.renewsOn || null,
+    url: input.url || null,
+    notes: input.notes ?? "",
+  });
+  if (error) throw new Error("Unable to create subscription.");
+
+  revalidatePath("/");
+}
+
+export async function updateSubscription(subscriptionId: string, rawInput: unknown) {
+  const id = idSchema.parse(subscriptionId);
+  const input = subscriptionInputSchema.parse(rawInput);
+  const { supabase } = await requireOwner();
+
+  const { error } = await supabase
+    .from("subscriptions")
+    .update({
+      name: input.name,
+      cost: input.cost,
+      billing_cycle: input.billingCycle,
+      renews_on: input.renewsOn || null,
+      url: input.url || null,
+      notes: input.notes ?? "",
+    })
+    .eq("id", id);
+  if (error) throw new Error("Unable to update subscription.");
+
+  revalidatePath("/");
+}
+
+export async function archiveSubscription(subscriptionId: string) {
+  const id = idSchema.parse(subscriptionId);
+  const { supabase } = await requireOwner();
+
+  const { error } = await supabase.from("subscriptions").update({ archived_at: new Date().toISOString() }).eq("id", id);
+  if (error) throw new Error("Unable to archive subscription.");
+
+  revalidatePath("/");
+}
+
+export async function restoreSubscription(subscriptionId: string) {
+  const id = idSchema.parse(subscriptionId);
+  const { supabase } = await requireOwner();
+
+  const { error } = await supabase.from("subscriptions").update({ archived_at: null }).eq("id", id);
+  if (error) throw new Error("Unable to restore subscription.");
+
+  revalidatePath("/");
+}
+
+// ---------------------------------------------------------------------------
+// Prompts
+// ---------------------------------------------------------------------------
+
+export async function createPrompt(rawInput: unknown) {
+  const input = promptInputSchema.parse(rawInput);
+  const { supabase } = await requireOwner();
+
+  const { error } = await supabase.from("prompts").insert({
+    name: input.name,
+    prompt_text: input.promptText,
+  });
+  if (error) throw new Error("Unable to create prompt.");
+
+  revalidatePath("/");
+}
+
+export async function updatePrompt(promptId: string, rawInput: unknown) {
+  const id = idSchema.parse(promptId);
+  const input = promptInputSchema.parse(rawInput);
+  const { supabase } = await requireOwner();
+
+  const { error } = await supabase
+    .from("prompts")
+    .update({
+      name: input.name,
+      prompt_text: input.promptText,
+    })
+    .eq("id", id);
+  if (error) throw new Error("Unable to update prompt.");
+
+  revalidatePath("/");
+}
+
+export async function archivePrompt(promptId: string) {
+  const id = idSchema.parse(promptId);
+  const { supabase } = await requireOwner();
+
+  const { error } = await supabase.from("prompts").update({ archived_at: new Date().toISOString() }).eq("id", id);
+  if (error) throw new Error("Unable to archive prompt.");
+
+  revalidatePath("/");
+}
+
+export async function restorePrompt(promptId: string) {
+  const id = idSchema.parse(promptId);
+  const { supabase } = await requireOwner();
+
+  const { error } = await supabase.from("prompts").update({ archived_at: null }).eq("id", id);
+  if (error) throw new Error("Unable to restore prompt.");
+
+  revalidatePath("/");
+}
+
+// ---------------------------------------------------------------------------
+// Resources
+// ---------------------------------------------------------------------------
+
+export async function createResource(rawInput: unknown) {
+  const input = resourceInputSchema.parse(rawInput);
+  const { supabase } = await requireOwner();
+
+  const { error } = await supabase.from("resources").insert({
+    name: input.name,
+    url: input.url,
+  });
+  if (error) throw new Error("Unable to create resource.");
+
+  revalidatePath("/");
+}
+
+export async function updateResource(resourceId: string, rawInput: unknown) {
+  const id = idSchema.parse(resourceId);
+  const input = resourceInputSchema.parse(rawInput);
+  const { supabase } = await requireOwner();
+
+  const { error } = await supabase
+    .from("resources")
+    .update({
+      name: input.name,
+      url: input.url,
+    })
+    .eq("id", id);
+  if (error) throw new Error("Unable to update resource.");
+
+  revalidatePath("/");
+}
+
+export async function archiveResource(resourceId: string) {
+  const id = idSchema.parse(resourceId);
+  const { supabase } = await requireOwner();
+
+  const { error } = await supabase.from("resources").update({ archived_at: new Date().toISOString() }).eq("id", id);
+  if (error) throw new Error("Unable to archive resource.");
+
+  revalidatePath("/");
+}
+
+export async function restoreResource(resourceId: string) {
+  const id = idSchema.parse(resourceId);
+  const { supabase } = await requireOwner();
+
+  const { error } = await supabase.from("resources").update({ archived_at: null }).eq("id", id);
+  if (error) throw new Error("Unable to restore resource.");
+
+  revalidatePath("/");
+}
+
+// ---------------------------------------------------------------------------
+// Archives
+// ---------------------------------------------------------------------------
+
+export interface ArchivedItem {
+  id: string;
+  name: string;
+  archivedAt: string;
+}
+
+export interface ArchivedItems {
+  accounts: ArchivedItem[];
+  campaigns: ArchivedItem[];
+  subscriptions: ArchivedItem[];
+  prompts: ArchivedItem[];
+  resources: ArchivedItem[];
+}
+
+export async function fetchArchivedItems(): Promise<ArchivedItems> {
+  const { supabase } = await requireOwner();
+
+  const [accounts, campaigns, subscriptions, prompts, resources] = await Promise.all([
+    supabase.from("accounts").select("id, name, archived_at").not("archived_at", "is", null).order("archived_at", { ascending: false }),
+    supabase.from("campaigns").select("id, name, archived_at").not("archived_at", "is", null).order("archived_at", { ascending: false }),
+    supabase.from("subscriptions").select("id, name, archived_at").not("archived_at", "is", null).order("archived_at", { ascending: false }),
+    supabase.from("prompts").select("id, name, archived_at").not("archived_at", "is", null).order("archived_at", { ascending: false }),
+    supabase.from("resources").select("id, name, archived_at").not("archived_at", "is", null).order("archived_at", { ascending: false }),
+  ]);
+
+  for (const result of [accounts, campaigns, subscriptions, prompts, resources]) {
+    if (result.error) throw new Error("Unable to load archived items.");
+  }
+
+  const toItems = (rows: { id: string; name: string; archived_at: string }[] | null): ArchivedItem[] =>
+    (rows ?? []).map((row) => ({ id: row.id, name: row.name, archivedAt: row.archived_at }));
+
+  return {
+    accounts: toItems(accounts.data),
+    campaigns: toItems(campaigns.data),
+    subscriptions: toItems(subscriptions.data),
+    prompts: toItems(prompts.data),
+    resources: toItems(resources.data),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Google Drive connection
 // ---------------------------------------------------------------------------
 
@@ -376,6 +616,28 @@ export async function updateLowStockDays(days: number) {
 
   const { error } = await supabase.from("app_config").update({ low_stock_days: lowStockDays }).eq("singleton", true);
   if (error) throw new Error("Unable to update low-stock threshold.");
+
+  revalidatePath("/");
+}
+
+export async function updateClipTargetOptions(rawOptions: unknown) {
+  const options = clipTargetOptionsSchema.parse(rawOptions);
+  const unique = Array.from(new Set(options)).sort((a, b) => a - b);
+  const { supabase } = await requireOwner();
+
+  const { error } = await supabase.from("app_config").update({ clip_target_options: unique }).eq("singleton", true);
+  if (error) throw new Error("Unable to update clip target options.");
+
+  revalidatePath("/");
+}
+
+export async function updateLowStockDayOptions(rawOptions: unknown) {
+  const options = lowStockDayOptionsSchema.parse(rawOptions);
+  const unique = Array.from(new Set(options)).sort((a, b) => a - b);
+  const { supabase } = await requireOwner();
+
+  const { error } = await supabase.from("app_config").update({ low_stock_day_options: unique }).eq("singleton", true);
+  if (error) throw new Error("Unable to update low-stock day options.");
 
   revalidatePath("/");
 }

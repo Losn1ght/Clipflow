@@ -4,6 +4,8 @@ import type { TaskStatus } from "@/lib/validation";
 
 // Defensive fallback if the app_config singleton row is somehow missing.
 export const DEFAULT_LOW_STOCK_DAYS = 2;
+export const DEFAULT_CLIP_TARGET_OPTIONS = [3, 4, 5, 6];
+export const DEFAULT_LOW_STOCK_DAY_OPTIONS = [1, 2, 3, 5, 7];
 const FRESH_WINDOW_MS = 26 * 60 * 60 * 1000;
 // Google's testing-mode refresh tokens for restricted scopes expire after ~7 days.
 // This app can't query the exact expiry, so it surfaces a soft heads-up once a
@@ -64,6 +66,11 @@ export interface DashboardPlatform {
   id: string;
   name: string;
   url: string;
+}
+
+/** A campaign is active until the end of its `endsOn` day; null means open-ended. */
+export function isCampaignActive(campaign: DashboardCampaign, today: string) {
+  return campaign.endsOn === null || campaign.endsOn >= today;
 }
 
 type MappingRow = {
@@ -207,9 +214,11 @@ export async function fetchDashboardData(supabase: SupabaseClient) {
 
   const { data: appConfigRow } = await supabase
     .from("app_config")
-    .select("low_stock_days")
+    .select("low_stock_days, clip_target_options, low_stock_day_options")
     .maybeSingle();
   const lowStockDays = appConfigRow?.low_stock_days ?? DEFAULT_LOW_STOCK_DAYS;
+  const clipTargetOptions = appConfigRow?.clip_target_options ?? DEFAULT_CLIP_TARGET_OPTIONS;
+  const lowStockDayOptions = appConfigRow?.low_stock_day_options ?? DEFAULT_LOW_STOCK_DAY_OPTIONS;
 
   const { data: accountRows, error: accountsError } = await supabase
     .from("accounts")
@@ -347,5 +356,5 @@ export async function fetchDashboardData(supabase: SupabaseClient) {
     url: row.url,
   }));
 
-  return { accounts, tasks, campaigns, platforms, lowStockDays, googleConnection };
+  return { accounts, tasks, campaigns, platforms, lowStockDays, clipTargetOptions, lowStockDayOptions, googleConnection };
 }

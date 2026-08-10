@@ -18,9 +18,15 @@ import { createAccount, disconnectDriveFolderMapping, updateAccount, upsertDrive
 import { useToast } from "@/components/ui/toast";
 import type { DashboardAccount } from "@/lib/dashboard-data";
 
-const CLIP_TARGET_OPTIONS = [3, 4, 5, 6];
-
-export function AccountDialog({ trigger, account }: { trigger: React.ReactNode; account?: DashboardAccount }) {
+export function AccountDialog({
+  trigger,
+  account,
+  clipTargetOptions,
+}: {
+  trigger: React.ReactNode;
+  account?: DashboardAccount;
+  clipTargetOptions: number[];
+}) {
   const isEdit = Boolean(account);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +34,13 @@ export function AccountDialog({ trigger, account }: { trigger: React.ReactNode; 
   const toast = useToast();
 
   const [name, setName] = useState(account?.name ?? "");
-  const [clipTarget, setClipTarget] = useState(String(account?.clipTargetPerDay ?? 3));
+  const [clipTarget, setClipTarget] = useState(String(account?.clipTargetPerDay ?? clipTargetOptions[0] ?? 3));
+  // The account's current value might not be in the configured options list
+  // (e.g. it was set before the list was edited down) — keep it selectable.
+  const availableClipTargets =
+    account && !clipTargetOptions.includes(account.clipTargetPerDay)
+      ? [...clipTargetOptions, account.clipTargetPerDay].sort((a, b) => a - b)
+      : clipTargetOptions;
   // Notes has no field in this dialog anymore, but preserve whatever the account
   // already had so saving other fields doesn't silently wipe it (updateAccount
   // overwrites the column with whatever is sent).
@@ -39,7 +51,7 @@ export function AccountDialog({ trigger, account }: { trigger: React.ReactNode; 
   const resetIfCreate = () => {
     if (!isEdit) {
       setName("");
-      setClipTarget("3");
+      setClipTarget(String(clipTargetOptions[0] ?? 3));
     }
   };
 
@@ -59,7 +71,7 @@ export function AccountDialog({ trigger, account }: { trigger: React.ReactNode; 
         }
         setOpen(false);
         resetIfCreate();
-        toast.add({ title: isEdit ? "Account updated" : "Account added", description: name });
+        toast.add({ title: isEdit ? "Account updated" : "Account added", description: name, type: "success" });
       } catch {
         setError("Unable to save account. Check the fields and try again.");
       }
@@ -101,17 +113,17 @@ export function AccountDialog({ trigger, account }: { trigger: React.ReactNode; 
           <div className="mt-4 space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="account-name">Name</Label>
-              <Input id="account-name" value={name} onChange={(e) => setName(e.target.value)} required maxLength={100} />
+              <Input id="account-name" value={name} onChange={(e) => setName(e.target.value)} required maxLength={27} />
             </div>
 
             <div className="space-y-1.5">
               <Label htmlFor="account-target">Clip target per day</Label>
-              <Select value={clipTarget} onValueChange={(value) => setClipTarget(value ?? "3")}>
+              <Select value={clipTarget} onValueChange={(value) => setClipTarget(value ?? clipTarget)}>
                 <SelectTrigger id="account-target" className="w-full">
-                  <SelectValue />
+                  <SelectValue>{(value: string) => `${value} clips / day`}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {CLIP_TARGET_OPTIONS.map((option) => (
+                  {availableClipTargets.map((option) => (
                     <SelectItem key={option} value={String(option)}>
                       {option} clips / day
                     </SelectItem>

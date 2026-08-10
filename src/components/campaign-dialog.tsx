@@ -99,6 +99,7 @@ export function CampaignDialog({
         toast.add({
           title: isEdit ? "Campaign updated" : "Campaign added",
           description: linkChanges > 0 ? `${name} · account links updated` : name,
+          type: "success",
         });
       } catch {
         setError("Unable to save campaign. Check the fields and try again.");
@@ -156,7 +157,9 @@ export function CampaignDialog({
               <Label htmlFor="campaign-platform">Platform (optional)</Label>
               <Select value={platformId} onValueChange={(value) => setPlatformId(value ?? NONE)}>
                 <SelectTrigger id="campaign-platform" className="w-full">
-                  <SelectValue />
+                  <SelectValue>
+                    {(value: string) => (value === NONE ? "None" : platforms.find((platform) => platform.id === value)?.name ?? "None")}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE}>None</SelectItem>

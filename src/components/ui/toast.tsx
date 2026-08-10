@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { Toast as ToastPrimitive } from "@base-ui/react/toast"
-import { CheckCircle2, XIcon } from "lucide-react"
+import { CheckCircle2, XCircle, XIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -47,14 +47,20 @@ function Toaster() {
             "data-[ending-style]:opacity-0",
             "data-[swipe-direction]:transition-none",
             "transition-all duration-200 ease-out",
-            "[&[data-limited]]:hidden"
+            "[&[data-limited]]:hidden",
+            toast.type === "success" && "border-positive bg-positive text-positive-foreground",
+            toast.type === "error" && "border-destructive bg-destructive text-white"
           )}
           style={{
             transform: "translateY(calc(var(--toast-swipe-movement-y, 0px)))",
           }}
         >
-          <div className="mt-0.5 shrink-0 text-primary">
-            <CheckCircle2 className="size-4" aria-hidden />
+          <div className={cn("mt-0.5 shrink-0", toast.type ? "text-current" : "text-primary")}>
+            {toast.type === "error" ? (
+              <XCircle className="size-4" aria-hidden />
+            ) : (
+              <CheckCircle2 className="size-4" aria-hidden />
+            )}
           </div>
           <ToastPrimitive.Content data-slot="toast-content" className="min-w-0 flex-1">
             {toast.title && (
@@ -66,14 +72,19 @@ function Toaster() {
             {toast.description && (
               <ToastPrimitive.Description
                 data-slot="toast-description"
-                className="mt-0.5 text-xs leading-relaxed text-muted-foreground"
+                className={cn("mt-0.5 text-xs leading-relaxed", toast.type ? "text-current/80" : "text-muted-foreground")}
               />
             )}
           </ToastPrimitive.Content>
           <ToastPrimitive.Close
             data-slot="toast-close"
             aria-label="Dismiss"
-            className="-mr-1 -mt-1 shrink-0 rounded-md p-1 text-muted-foreground outline-none transition hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+            className={cn(
+              "-mr-1 -mt-1 shrink-0 rounded-md p-1 outline-none transition focus-visible:ring-2 focus-visible:ring-ring/50",
+              toast.type
+                ? "text-current/70 hover:bg-black/10 hover:text-current"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
           >
             <XIcon className="size-3.5" />
           </ToastPrimitive.Close>

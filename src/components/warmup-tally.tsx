@@ -81,7 +81,7 @@ export function WarmupTally({
         await setWarmupDay(accountId, day);
       } catch {
         if (previous) updateState(accountId, { warmupDay: previous });
-        toast.add({ title: "Unable to update warm-up day" });
+        toast.add({ title: "Unable to update warm-up day", type: "error" });
       }
     });
   };
@@ -105,7 +105,7 @@ export function WarmupTally({
         await recordWarmupInteraction(accountId, metric);
       } catch {
         updateState(accountId, { [countKey]: state[countKey], reelsWatched: state.reelsWatched } as Partial<WarmupState>);
-        toast.add({ title: "Unable to record interaction" });
+        toast.add({ title: "Unable to record interaction", type: "error" });
       }
     });
   };
@@ -120,7 +120,7 @@ export function WarmupTally({
         await recordWarmupReelWatched(accountId);
       } catch {
         updateState(accountId, { reelsWatched: previous });
-        toast.add({ title: "Unable to record reel watched" });
+        toast.add({ title: "Unable to record reel watched", type: "error" });
       }
     });
   };
