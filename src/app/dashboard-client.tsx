@@ -21,7 +21,7 @@ import {
   type KeyboardCoordinateGetter,
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { Archive, AlertTriangle, Bell, CheckCircle2, Cloud, ExternalLink, FolderOpen, GripVertical, Link2, Pencil, Plus, RefreshCw, Settings, StickyNote, Trash2 } from "lucide-react";
+import { Archive, AlertTriangle, CheckCircle2, Cloud, Copy, CreditCard, ExternalLink, FolderOpen, GripVertical, Link2, Pencil, Plus, RefreshCw, Settings, StickyNote, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,14 +32,30 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useToast } from "@/components/ui/toast";
 import { AccountDialog } from "@/components/account-dialog";
 import { CampaignDialog } from "@/components/campaign-dialog";
+import { SubscriptionDialog } from "@/components/subscription-dialog";
+import { PromptDialog } from "@/components/prompt-dialog";
+import { ResourceDialog } from "@/components/resource-dialog";
+import { ArchivesDialog } from "@/components/archives-dialog";
 import { TaskDialog } from "@/components/task-dialog";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { SettingsDialog } from "@/components/settings-dialog";
 import { WarmupTally } from "@/components/warmup-tally";
-import { archiveAccount, archiveCampaign, deleteTask, disconnectGoogleDrive, moveTaskStatus, syncDriveNow } from "@/app/actions";
+import { archiveAccount, archiveCampaign, archivePrompt, archiveResource, archiveSubscription, deleteTask, disconnectGoogleDrive, moveTaskStatus, syncDriveNow } from "@/app/actions";
 import type { DashboardAccount, DashboardCampaign, DashboardGoogleConnection, DashboardPlatform, DashboardTask } from "@/lib/dashboard-data";
 import type { WarmupState } from "@/lib/warmup-data";
-import type { TaskStatus } from "@/lib/validation";
+import type { DashboardSubscription } from "@/lib/subscriptions-data";
+import type { DashboardPrompt } from "@/lib/prompts-data";
+import type { DashboardResource } from "@/lib/resources-data";
+import type { BillingCycle, TaskStatus } from "@/lib/validation";
+
+// Suffix shown next to the raw per-cycle cost, alongside the monthly-equivalent.
+// Monthly has no suffix — its raw cost and monthly-equivalent are the same number.
+const BILLING_CYCLE_SUFFIXES: Record<BillingCycle, string | null> = {
+  weekly: "wk",
+  monthly: null,
+  quarterly: "qtr",
+  yearly: "yr",
+};
 
 const columns: { status: TaskStatus; label: string }[] = [
   { status: "backlog", label: "Backlog" },
@@ -59,7 +75,19 @@ function formatDate(isoDate: string) {
 }
 
 function formatBudget(budget: number) {
-  return Number.isInteger(budget) ? `$${budget}` : `$${budget.toFixed(2)}`;
+  return Number.isInteger(budget)
+    ? `$${budget.toLocaleString("en-US")}`
+    : `$${budget.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function formatPeso(amount: number) {
+  return Number.isInteger(amount)
+    ? `₱${amount.toLocaleString("en-US")}`
+    : `₱${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function daysUntil(isoDate: string, today: string) {
+  return Math.round((new Date(isoDate).getTime() - new Date(today).getTime()) / 86_400_000);
 }
 
 // Only ever render a value as a clickable href if it's actually a safe http(s)
@@ -134,24 +162,47 @@ export function DashboardClient({
   accounts,
   initialTasks,
   campaigns,
+  activeCampaigns,
   platforms,
   lowStockDays,
+  clipTargetOptions,
+  lowStockDayOptions,
   googleConnection,
   initialWarmupStates,
+  subscriptions,
+  prompts,
+  resources,
+  today,
 }: {
   accounts: DashboardAccount[];
   initialTasks: DashboardTask[];
   campaigns: DashboardCampaign[];
+  activeCampaigns: DashboardCampaign[];
   platforms: DashboardPlatform[];
   lowStockDays: number;
+  clipTargetOptions: number[];
+  lowStockDayOptions: number[];
   googleConnection: DashboardGoogleConnection | null;
   initialWarmupStates: WarmupState[];
+  subscriptions: DashboardSubscription[];
+  prompts: DashboardPrompt[];
+  resources: DashboardResource[];
+  today: string;
 }) {
   const [tasks, setTasks] = useState(initialTasks);
   const [pendingTaskIds, setPendingTaskIds] = useState<Set<string>>(new Set());
   const [, startTransition] = useTransition();
   const [isSyncing, startSyncTransition] = useTransition();
   const toast = useToast();
+
+  const handleCopyPrompt = async (prompt: DashboardPrompt) => {
+    try {
+      await navigator.clipboard.writeText(prompt.promptText);
+      toast.add({ title: "Copied to clipboard", description: prompt.name, type: "success" });
+    } catch {
+      toast.add({ title: "Unable to copy", description: prompt.name, type: "error" });
+    }
+  };
 
   const handleSyncDrive = () => {
     startSyncTransition(async () => {
@@ -161,9 +212,9 @@ export function DashboardClient({
         if (summary.checkpointed) parts.push(`${summary.checkpointed} in progress`);
         if (summary.skipped) parts.push(`${summary.skipped} skipped`);
         if (summary.failed) parts.push(`${summary.failed} failed`);
-        toast.add({ title: "Drive sync ran", description: `${parts.join(", ")}.` });
+        toast.add({ title: "Drive sync ran", description: `${parts.join(", ")}.`, type: "success" });
       } catch {
-        toast.add({ title: "Drive sync failed", description: "Something went wrong starting the sync." });
+        toast.add({ title: "Drive sync failed", description: "Something went wrong starting the sync.", type: "error" });
       }
     });
   };
@@ -175,9 +226,9 @@ export function DashboardClient({
     const connected = params.get("googleConnected");
     const errorCode = params.get("googleError");
     if (connected) {
-      toast.add({ title: "Google Drive connected" });
+      toast.add({ title: "Google Drive connected", type: "success" });
     } else if (errorCode) {
-      toast.add({ title: "Google Drive connection failed", description: `Error: ${errorCode}` });
+      toast.add({ title: "Google Drive connection failed", description: `Error: ${errorCode}`, type: "error" });
     }
     if (connected || errorCode) {
       window.history.replaceState({}, "", window.location.pathname);
@@ -188,20 +239,7 @@ export function DashboardClient({
   const totalClips = accounts.reduce((sum, account) => sum + (account.clipCount ?? 0), 0);
   const targetTotal = accounts.reduce((sum, account) => sum + account.clipTargetPerDay, 0);
   const coverage = useMemo(() => (targetTotal > 0 ? Math.floor(totalClips / targetTotal) : 0), [totalClips, targetTotal]);
-  const lowCount = accounts.filter((account) => account.tone === "destructive").length;
-
-  const alerts = accounts
-    .filter((account) => account.tone === "destructive")
-    .map((account) => {
-      if (account.state === "disconnected") {
-        return { key: account.id, title: `${account.name} folder disconnected`, text: "Reconnect the Drive folder to resume counting." };
-      }
-      if (account.state === "failed") {
-        return { key: account.id, title: `${account.name} sync failed`, text: "The last sync attempt failed. The previous complete count is still shown." };
-      }
-      const days = account.coverageDays ?? 0;
-      return { key: account.id, title: `${account.name} is low`, text: `${account.clipCount ?? 0} clips ≈ ${days.toFixed(1)} days at its target. Restock soon.` };
-    });
+  const monthlyTotal = subscriptions.reduce((sum, subscription) => sum + subscription.monthlyCost, 0);
 
   const moveTask = (id: string, nextStatus: TaskStatus) => {
     const task = tasks.find((item) => item.id === id);
@@ -319,8 +357,17 @@ export function DashboardClient({
                 <Link2 /> Connect Google Drive
               </Button>
             )}
+            <ArchivesDialog
+              trigger={
+                <Button variant="outline" size="icon" aria-label="Archives">
+                  <Archive />
+                </Button>
+              }
+            />
             <SettingsDialog
               lowStockDays={lowStockDays}
+              clipTargetOptions={clipTargetOptions}
+              lowStockDayOptions={lowStockDayOptions}
               platforms={platforms}
               trigger={
                 <Button variant="outline" size="icon" aria-label="Dashboard settings">
@@ -337,23 +384,30 @@ export function DashboardClient({
             <TabsTrigger value="warmup">Warm-Up</TabsTrigger>
           </TabsList>
           <TabsContent value="dashboard">
-        {/* Light Table layout: left column (metrics banner + inventory strip + cutting queue) / right reel rail */}
-        <div className="mt-6 grid gap-6 xl:grid-cols-[1.7fr_1fr] xl:items-start">
-          <div className="flex min-w-0 flex-col gap-8">
+        {/* Full-width stack: no section is paired against one with different growth
+            behavior — Account inventory grows unbounded with account count, so it
+            gets its own row instead of sharing a grid row with anything else. */}
+        <div className="mt-6 flex flex-col gap-8">
             {/* Metrics banner — one continuous filmstrip, not three boxed cards */}
             <section className="slate-mark overflow-hidden rounded-xl border border-border bg-card">
               <div className="grid grid-cols-1 sm:grid-cols-3">
                 <MetricFrame label="Available clips" value={String(totalClips)} detail={`Across ${accounts.length} active account${accounts.length === 1 ? "" : "s"}`} icon={<Cloud className="size-5" />} />
                 <MetricFrame label="Workflow coverage" value={`${pad(coverage, 2)}d`} detail="Based on account-level targets" icon={<CheckCircle2 className="size-5" />} className="border-t border-border sm:border-t-0 sm:border-l" />
-                <MetricFrame label="Needs attention" value={pad(lowCount, 2)} detail="Low stock or restock soon" icon={<Bell className="size-5" />} alert className="border-t border-border sm:border-t-0 sm:border-l" />
+                <MetricFrame
+                  label="Monthly spend"
+                  value={formatPeso(monthlyTotal)}
+                  detail={`${subscriptions.length} subscription${subscriptions.length === 1 ? "" : "s"}`}
+                  icon={<CreditCard className="size-5" />}
+                  className="border-t border-border sm:border-t-0 sm:border-l"
+                />
               </div>
             </section>
 
             {/* Inventory strip — horizontal contact-sheet, scan left to right */}
             <Card className="slate-mark shadow-none">
               <CardHeader className="flex-row items-start justify-between">
-                <div><p className="eyebrow">Inventory log</p><CardTitle className="mt-1.5">Account inventory</CardTitle><CardDescription className="mt-1">Clip coverage is always calculated per account.</CardDescription></div>
-                <div className="flex items-center gap-2">
+                <div><CardTitle>Account inventory</CardTitle><CardDescription className="mt-1">Clip coverage is always calculated per account.</CardDescription></div>
+                <div className="flex items-center gap-4">
                   <span className="inline-flex animate-pulse items-center gap-1.5 rounded-full border border-border bg-background/50 px-2 py-1 text-xs">
                     <span className="relative flex size-1.5">
                       <span className="absolute inline-flex size-full animate-ping rounded-full bg-positive opacity-75" />
@@ -361,14 +415,14 @@ export function DashboardClient({
                     </span>
                     <span className="timecode text-positive">Live</span>
                   </span>
-                  <AccountDialog trigger={<Button variant="outline" size="sm"><Plus /> Add account</Button>} />
+                  <AccountDialog clipTargetOptions={clipTargetOptions} trigger={<Button variant="outline" size="sm"><Plus /> Add account</Button>} />
                 </div>
               </CardHeader>
               <CardContent>
                 {accounts.length === 0 ? (
                   <div className="flex flex-col items-center gap-3 py-8 text-center">
                     <p className="text-sm text-muted-foreground">No accounts yet.</p>
-                    <AccountDialog trigger={<Button variant="outline" size="sm"><Plus /> Add account</Button>} />
+                    <AccountDialog clipTargetOptions={clipTargetOptions} trigger={<Button variant="outline" size="sm"><Plus /> Add account</Button>} />
                   </div>
                 ) : (
                   <div
@@ -397,7 +451,7 @@ export function DashboardClient({
                                   <ExternalLink />
                                 </Button>
                               )}
-                              <AccountDialog account={account} trigger={<Button variant="ghost" size="icon-xs" aria-label={`Edit ${account.name}`}><Pencil /></Button>} />
+                              <AccountDialog account={account} clipTargetOptions={clipTargetOptions} trigger={<Button variant="ghost" size="icon-xs" aria-label={`Edit ${account.name}`}><Pencil /></Button>} />
                               <ConfirmDialog
                                 trigger={<Button variant="ghost" size="icon-xs" aria-label={`Archive ${account.name}`}><Archive /></Button>}
                                 title="Archive account?"
@@ -419,46 +473,30 @@ export function DashboardClient({
                 )}
               </CardContent>
             </Card>
-          </div>
 
-          {/* Reel rail — restock alerts + active campaigns as one continuous column */}
+          {/* Active campaigns + subscriptions — paired side-by-side; both cap at the
+              same max-h-72 scroll height, so this pairing stays balanced at any scale. */}
+          <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
           <Card className="slate-mark shadow-none">
-            <CardContent className="space-y-3 border-b border-border pb-5">
-              <p className="eyebrow text-warning/80">Reel status</p>
-              <div className="flex items-center gap-2 text-warning"><Bell className="size-5" /><CardTitle>Restock alerts</CardTitle></div>
-              <CardDescription>In-app only for this first release.</CardDescription>
-              <div className="max-h-64 space-y-3 overflow-y-auto pt-1 pr-1">
-                {alerts.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Nothing needs attention.</p>
-                ) : (
-                  alerts.map((alert) => <Alert key={alert.key} title={alert.title} text={alert.text} />)
-                )}
-              </div>
-            </CardContent>
-            <CardContent className="space-y-3 pt-5">
+            <CardContent className="space-y-3">
               <div className="flex items-start justify-between gap-3">
                 <div><CardTitle>Active campaigns</CardTitle><CardDescription>Requirement and submission links for each campaign.</CardDescription></div>
                 <CampaignDialog accounts={accounts} platforms={platforms} trigger={<Button variant="outline" size="sm"><Plus /> Add</Button>} />
               </div>
               <div className="max-h-72 space-y-3 overflow-y-auto pt-1 pr-1">
-                {campaigns.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No campaigns yet.</p>
+                {activeCampaigns.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No active campaigns.</p>
                 ) : (
-                  campaigns.map((campaign) => {
-                    const href = safeHref(campaign.requirementsUrl) ?? safeHref(campaign.submissionUrl);
+                  activeCampaigns.map((campaign) => {
+                    const requirementsHref = safeHref(campaign.requirementsUrl);
+                    const submissionHref = safeHref(campaign.submissionUrl);
                     const label = `${campaign.name}${campaign.accountNames.length ? ` · ${campaign.accountNames.join(", ")}` : ""}`;
                     return (
                       <div key={campaign.id} className="flex items-center justify-between gap-2 rounded-lg border border-border bg-background/50 p-3 text-sm">
-                        <div className="min-w-0 flex-1">
-                          {href ? (
-                            <a href={href} target="_blank" rel="noreferrer" className="block truncate outline-none transition hover:text-primary focus-visible:ring-2 focus-visible:ring-ring/50">
-                              {label}
-                            </a>
-                          ) : (
-                            <span className="block truncate">{label}</span>
-                          )}
+                        <div className="min-w-0 flex-1 space-y-1.5">
+                          <span className="block truncate font-medium">{label}</span>
                           {(campaign.platformName || campaign.budget !== null || campaign.endsOn) && (
-                            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
                               {campaign.platformName && (
                                 safeHref(campaign.platformUrl) ? (
                                   <a
@@ -474,9 +512,39 @@ export function DashboardClient({
                                 )
                               )}
                               {campaign.budget !== null && <span>{formatBudget(campaign.budget)}</span>}
-                              {campaign.endsOn && <span>Ends {formatDate(campaign.endsOn)}</span>}
+                              {campaign.endsOn && (
+                                <Badge variant={daysUntil(campaign.endsOn, today) <= 7 ? "destructive" : "outline"}>
+                                  Ends {formatDate(campaign.endsOn)}
+                                </Badge>
+                              )}
                             </div>
                           )}
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {requirementsHref ? (
+                              <Button
+                                variant="outline"
+                                size="xs"
+                                nativeButton={false}
+                                render={<a href={requirementsHref} target="_blank" rel="noreferrer" />}
+                              >
+                                <Link2 /> Requirements
+                              </Button>
+                            ) : (
+                              campaign.requirementsUrl && (
+                                <span className="truncate text-xs text-muted-foreground">{campaign.requirementsUrl}</span>
+                              )
+                            )}
+                            {submissionHref && (
+                              <Button
+                                variant="outline"
+                                size="xs"
+                                nativeButton={false}
+                                render={<a href={submissionHref} target="_blank" rel="noreferrer" />}
+                              >
+                                <ExternalLink /> Submission
+                              </Button>
+                            )}
+                          </div>
                         </div>
                         <div className="flex shrink-0 items-center gap-0.5">
                           <CampaignDialog
@@ -501,6 +569,119 @@ export function DashboardClient({
               </div>
             </CardContent>
           </Card>
+
+          <Card className="slate-mark shadow-none">
+            <CardContent className="space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div><CardTitle>Subscriptions</CardTitle><CardDescription>Recurring costs for the clipping stack.</CardDescription></div>
+                <SubscriptionDialog trigger={<Button variant="outline" size="sm"><Plus /> Add</Button>} />
+              </div>
+              <div className="max-h-72 space-y-3 overflow-y-auto pt-1 pr-1">
+                {subscriptions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No subscriptions tracked yet.</p>
+                ) : (
+                  subscriptions.map((subscription) => {
+                    const href = safeHref(subscription.url);
+                    const cycleSuffix = BILLING_CYCLE_SUFFIXES[subscription.billingCycle];
+                    return (
+                      <div key={subscription.id} className="flex items-center justify-between gap-2 rounded-lg border border-border bg-background/50 p-3 text-sm">
+                        <div className="min-w-0 flex-1">
+                          {href ? (
+                            <a href={href} target="_blank" rel="noreferrer" className="block truncate outline-none transition hover:text-primary focus-visible:ring-2 focus-visible:ring-ring/50">
+                              {subscription.name}
+                            </a>
+                          ) : (
+                            <span className="block truncate">{subscription.name}</span>
+                          )}
+                          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                            <span>
+                              {formatPeso(subscription.monthlyCost)}/mo
+                              {cycleSuffix && ` · ${formatPeso(subscription.cost)}/${cycleSuffix}`}
+                            </span>
+                            {subscription.renewsOn && (
+                              <Badge
+                                variant={daysUntil(subscription.renewsOn, today) <= 7 ? "destructive" : "outline"}
+                                className={
+                                  daysUntil(subscription.renewsOn, today) <= 2
+                                    ? "animate-pulse shadow-[0_0_10px_2px_var(--color-destructive)]"
+                                    : undefined
+                                }
+                              >
+                                Renews {formatDate(subscription.renewsOn)}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-0.5">
+                          <SubscriptionDialog
+                            subscription={subscription}
+                            trigger={<Button variant="ghost" size="icon-xs" aria-label={`Edit ${subscription.name}`}><Pencil /></Button>}
+                          />
+                          <ConfirmDialog
+                            trigger={<Button variant="ghost" size="icon-xs" aria-label={`Archive ${subscription.name}`}><Archive /></Button>}
+                            title="Cancel subscription?"
+                            description={`${subscription.name} will be hidden from the active dashboard.`}
+                            confirmLabel="Archive"
+                            onConfirm={() => archiveSubscription(subscription.id)}
+                            successMessage={`${subscription.name} archived`}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          </div>
+        </div>
+
+        {/* Resources — full width, own row between the top grid and the Work Board */}
+        <div className="mt-8">
+          <div className="mb-3 flex items-end justify-between">
+            <div><h2 className="font-heading text-2xl font-bold tracking-tight">Resources</h2><p className="mt-1 text-sm text-muted-foreground">Tools and links for the clipping workflow.</p></div>
+            <ResourceDialog trigger={<Button variant="outline" size="sm"><Plus /> Add</Button>} />
+          </div>
+          {resources.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-muted/30 p-8 text-center text-sm text-muted-foreground">
+              <p>No resources saved yet.</p>
+              <ResourceDialog trigger={<Button variant="outline" size="sm"><Plus /> Add</Button>} />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {resources.map((resource) => {
+                const href = safeHref(resource.url);
+                return (
+                  <div key={resource.id} className="flex items-center justify-between gap-2 rounded-lg border border-border bg-background/50 p-3 text-sm">
+                    <div className="min-w-0 flex-1">
+                      {href ? (
+                        <a href={href} target="_blank" rel="noreferrer" className="block truncate outline-none transition hover:text-primary focus-visible:ring-2 focus-visible:ring-ring/50">
+                          {resource.name}
+                        </a>
+                      ) : (
+                        <span className="block truncate">{resource.name}</span>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-0.5">
+                      <ResourceDialog
+                        resource={resource}
+                        trigger={<Button variant="ghost" size="icon-xs" aria-label={`Edit ${resource.name}`}><Pencil /></Button>}
+                      />
+                      <ConfirmDialog
+                        trigger={<Button variant="ghost" size="icon-xs" aria-label={`Archive ${resource.name}`}><Archive /></Button>}
+                        title="Archive resource?"
+                        description={`${resource.name} will be hidden from the active dashboard.`}
+                        confirmLabel="Archive"
+                        onConfirm={() => archiveResource(resource.id)}
+                        successMessage={`${resource.name} archived`}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Work Board — kanban, full width below the metrics/inventory/reel-rail row */}
@@ -508,13 +689,13 @@ export function DashboardClient({
           <div className="mb-3 flex items-end justify-between">
             <div><h2 className="font-heading text-2xl font-bold tracking-tight">Work Board</h2><p className="mt-1 text-sm text-muted-foreground">Keep campaign work visible from source to submission.</p></div>
             <div className="flex items-center gap-2">
-              <TaskDialog accounts={accounts} campaigns={campaigns} trigger={<Button variant="outline" size="sm"><Plus /> Add task</Button>} />
+              <TaskDialog campaigns={campaigns} trigger={<Button variant="outline" size="sm"><Plus /> Add task</Button>} />
             </div>
           </div>
           {tasks.length === 0 ? (
             <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-muted/30 p-8 text-center text-sm text-muted-foreground">
               <p>Nothing in the queue.</p>
-              <TaskDialog accounts={accounts} campaigns={campaigns} trigger={<Button variant="outline" size="sm"><Plus /> Add task</Button>} />
+              <TaskDialog campaigns={campaigns} trigger={<Button variant="outline" size="sm"><Plus /> Add task</Button>} />
             </div>
           ) : (
             <DndContext
@@ -557,7 +738,6 @@ export function DashboardClient({
                           key={task.id}
                           task={task}
                           isMoving={pendingTaskIds.has(task.id)}
-                          accounts={accounts}
                           campaigns={campaigns}
                         />
                       ))}
@@ -566,9 +746,51 @@ export function DashboardClient({
                 })}
               </div>
               <DragOverlay dropAnimation={dropAnimation}>
-                {activeTask ? <TaskCard task={activeTask} isMoving={false} accounts={accounts} campaigns={campaigns} overlay /> : null}
+                {activeTask ? <TaskCard task={activeTask} isMoving={false} campaigns={campaigns} overlay /> : null}
               </DragOverlay>
             </DndContext>
+          )}
+        </div>
+
+        {/* Prompt Guide — reusable prompts for the clipping workflow, full width below the Work Board */}
+        <div className="mt-8">
+          <div className="mb-3 flex items-end justify-between">
+            <div><h2 className="font-heading text-2xl font-bold tracking-tight">Prompt Guide</h2><p className="mt-1 text-sm text-muted-foreground">Reusable prompts for your clipping videos.</p></div>
+            <PromptDialog trigger={<Button variant="outline" size="sm"><Plus /> Add prompt</Button>} />
+          </div>
+          {prompts.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-muted/30 p-8 text-center text-sm text-muted-foreground">
+              <p>No prompts saved yet.</p>
+              <PromptDialog trigger={<Button variant="outline" size="sm"><Plus /> Add prompt</Button>} />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {prompts.map((prompt) => (
+                <div key={prompt.id} className="flex flex-col gap-2 rounded-lg border border-border bg-background/50 p-3 text-sm">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="min-w-0 flex-1 truncate font-medium">{prompt.name}</p>
+                    <div className="flex shrink-0 items-center gap-0.5">
+                      <Button variant="ghost" size="icon-xs" aria-label={`Copy ${prompt.name}`} onClick={() => handleCopyPrompt(prompt)}>
+                        <Copy />
+                      </Button>
+                      <PromptDialog
+                        prompt={prompt}
+                        trigger={<Button variant="ghost" size="icon-xs" aria-label={`Edit ${prompt.name}`}><Pencil /></Button>}
+                      />
+                      <ConfirmDialog
+                        trigger={<Button variant="ghost" size="icon-xs" aria-label={`Archive ${prompt.name}`}><Archive /></Button>}
+                        title="Archive prompt?"
+                        description={`${prompt.name} will be hidden from the prompt guide.`}
+                        confirmLabel="Archive"
+                        onConfirm={() => archivePrompt(prompt.id)}
+                        successMessage={`${prompt.name} archived`}
+                      />
+                    </div>
+                  </div>
+                  <p className="max-h-40 overflow-y-auto pr-1 text-xs whitespace-pre-wrap text-muted-foreground">{prompt.promptText}</p>
+                </div>
+              ))}
+            </div>
           )}
         </div>
           </TabsContent>
@@ -589,8 +811,6 @@ function MetricFrame({ label, value, detail, icon, alert = false, className = ""
     </div>
   );
 }
-function Alert({ title, text }: { title: string; text: string }) { return <div className="rounded-lg border border-warning/15 bg-background/50 p-3"><p className="text-sm font-medium text-warning">{title}</p><p className="mt-1 text-sm leading-relaxed text-muted-foreground">{text}</p></div> }
-
 function KanbanColumn({
   status,
   label,
@@ -623,13 +843,11 @@ function KanbanColumn({
 function TaskCard({
   task,
   isMoving,
-  accounts,
   campaigns,
   overlay = false,
 }: {
   task: DashboardTask;
   isMoving: boolean;
-  accounts: DashboardAccount[];
   campaigns: DashboardCampaign[];
   overlay?: boolean;
 }) {
@@ -680,7 +898,6 @@ function TaskCard({
           <div className="-mr-1 -mt-1 flex shrink-0 items-center gap-0.5">
             <TaskDialog
               task={task}
-              accounts={accounts}
               campaigns={campaigns}
               trigger={
                 <Button
