@@ -1,13 +1,18 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { LOGIN_DISABLED } from "@/lib/dev-flags";
 
-const publicPaths = new Set(["/auth/callback", "/auth/signout", "/login"]);
+const publicPaths = new Set(["/auth/signout", "/login"]);
 
 export async function proxy(request: NextRequest) {
   const response = NextResponse.next({ request });
+  if (LOGIN_DISABLED) {
+    return response;
+  }
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   const ownerId = process.env.CANONICAL_OWNER_ID;
+  const ownerEmail = process.env.CANONICAL_OWNER_EMAIL?.toLowerCase();
 
   if (publicPaths.has(request.nextUrl.pathname)) {
     return response;
@@ -15,7 +20,7 @@ export async function proxy(request: NextRequest) {
 
   // Fail closed: if required env vars are missing, don't silently skip the auth
   // check — send the request to /login instead of letting it through.
-  if (!url || !key || !ownerId) {
+  if (!url || !key || !ownerId || !ownerEmail) {
     const destination = request.nextUrl.clone();
     destination.pathname = "/login";
     return NextResponse.redirect(destination);
@@ -32,7 +37,8 @@ export async function proxy(request: NextRequest) {
   });
 
   const { data, error } = await supabase.auth.getClaims();
-  if (error || data?.claims?.sub !== ownerId) {
+  const email = (data?.claims?.email as string | undefined)?.toLowerCase();
+  if (error || data?.claims?.sub !== ownerId || email !== ownerEmail) {
     const destination = request.nextUrl.clone();
     destination.pathname = "/login";
     
