@@ -87,7 +87,7 @@ function NumberListEditor({
               type="button"
               onClick={() => removeValue(value)}
               aria-label={`Remove ${value}`}
-              className="rounded-full p-0.5 outline-none transition hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50"
+              className="cursor-pointer rounded-full p-0.5 outline-none transition hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50"
             >
               <X className="size-3" />
             </button>
@@ -134,6 +134,13 @@ export function SettingsDialog({
   const [isPending, startTransition] = useTransition();
   const toast = useToast();
 
+  // PlatformFormDialog/ConfirmDialog below are nested inside this dialog's
+  // content. Base UI suppresses their own backdrop while nested, but doesn't
+  // hide this dialog's own box — so without this, opening "Add platform"
+  // would show the Settings box still sitting behind it. Hide it while any
+  // nested dialog is open instead.
+  const [nestedOpen, setNestedOpen] = useState(false);
+
   const [days, setDays] = useState(String(lowStockDays));
   const [lowStockDayChoices, setLowStockDayChoices] = useState(lowStockDayOptions);
   const [clipTargetChoices, setClipTargetChoices] = useState(clipTargetOptions);
@@ -148,17 +155,31 @@ export function SettingsDialog({
     event.preventDefault();
     setError(null);
     startTransition(async () => {
-      try {
-        await Promise.all([
-          updateLowStockDays(Number(days)),
-          updateLowStockDayOptions(lowStockDayChoices),
-          updateClipTargetOptions(clipTargetChoices),
-        ]);
-        setOpen(false);
-        toast.add({ title: "Settings updated", description: `Low stock threshold set to ${days} day${days === "1" ? "" : "s"}.`, type: "success" });
-      } catch {
-        setError("Unable to save settings. Try again.");
+      // Sequential (not Promise.all): all three actions write the same
+      // app_config singleton row, so concurrent writes are unnecessary and a
+      // sequential attribution lets us name which specific action failed.
+      const steps: [string, () => Promise<unknown>][] = [
+        ["low stock threshold", () => updateLowStockDays(Number(days))],
+        ["low stock day choices", () => updateLowStockDayOptions(lowStockDayChoices)],
+        ["clip target choices", () => updateClipTargetOptions(clipTargetChoices)],
+      ];
+      let savedAny = false;
+      for (const [label, run] of steps) {
+        try {
+          await run();
+          savedAny = true;
+        } catch (err) {
+          console.error(`Failed to save ${label}`, err);
+          setError(
+            savedAny
+              ? `Saved some settings, but couldn't save ${label}. Try again.`
+              : `Couldn't save ${label}. Try again.`
+          );
+          return;
+        }
       }
+      setOpen(false);
+      toast.add({ title: "Settings updated", description: `Low stock threshold set to ${days} day${days === "1" ? "" : "s"}.`, type: "success" });
     });
   };
 
@@ -176,14 +197,17 @@ export function SettingsDialog({
       }}
     >
       <DialogTrigger render={trigger as React.ReactElement} />
-      <DialogContent className="sm:max-w-md">
+      <DialogContent
+        className={`sm:max-w-md transition-opacity duration-200 ${nestedOpen ? "pointer-events-none opacity-0" : "opacity-100"}`}
+        aria-hidden={nestedOpen || undefined}
+      >
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Dashboard settings</DialogTitle>
+            <DialogTitle>Settings</DialogTitle>
             <DialogDescription>Choose how many days of coverage counts as low stock.</DialogDescription>
           </DialogHeader>
 
-          <div className="mt-4 space-y-4">
+          <div className="mt-5 max-h-[60vh] space-y-5 overflow-y-auto pr-1">
             <div className="space-y-1.5">
               <Label htmlFor="low-stock-days">Low stock threshold</Label>
               <Select value={days} onValueChange={(value) => setDays(value ?? String(lowStockDays))}>
@@ -218,14 +242,17 @@ export function SettingsDialog({
               max={30}
               maxCount={12}
             />
-
-            {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
 
-          <div className="mt-4 space-y-2 border-t border-border pt-4">
+          {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+
+          <div className="mt-5 space-y-2.5 border-t border-border pt-4">
             <div className="flex items-center justify-between">
               <p className="eyebrow">Platforms</p>
-              <PlatformFormDialog trigger={<Button type="button" variant="outline" size="sm"><Plus /> Add platform</Button>} />
+              <PlatformFormDialog
+                trigger={<Button type="button" variant="outline" size="sm"><Plus /> Add platform</Button>}
+                onOpenChange={setNestedOpen}
+              />
             </div>
             {platforms.length === 0 ? (
               <p className="text-sm text-muted-foreground">No platforms yet.</p>
@@ -241,6 +268,7 @@ export function SettingsDialog({
                       <PlatformFormDialog
                         platform={platform}
                         trigger={<Button type="button" variant="ghost" size="icon-xs" aria-label={`Edit ${platform.name}`}><Pencil /></Button>}
+                        onOpenChange={setNestedOpen}
                       />
                       <ConfirmDialog
                         trigger={<Button type="button" variant="ghost" size="icon-xs" aria-label={`Delete ${platform.name}`}><Trash2 /></Button>}
@@ -249,6 +277,7 @@ export function SettingsDialog({
                         confirmLabel="Delete"
                         onConfirm={() => deletePlatform(platform.id)}
                         successMessage={`${platform.name} deleted`}
+                        onOpenChange={setNestedOpen}
                       />
                     </div>
                   </div>
@@ -271,7 +300,16 @@ export function SettingsDialog({
   );
 }
 
-function PlatformFormDialog({ trigger, platform }: { trigger: React.ReactNode; platform?: DashboardPlatform }) {
+function PlatformFormDialog({
+  trigger,
+  platform,
+  onOpenChange,
+}: {
+  trigger: React.ReactNode;
+  platform?: DashboardPlatform;
+  /** Notified on open/close — lets SettingsDialog hide itself while this is open. */
+  onOpenChange?: (open: boolean) => void;
+}) {
   const isEdit = Boolean(platform);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -283,6 +321,7 @@ function PlatformFormDialog({ trigger, platform }: { trigger: React.ReactNode; p
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
+    event.stopPropagation();
     setError(null);
     startTransition(async () => {
       try {
@@ -312,10 +351,11 @@ function PlatformFormDialog({ trigger, platform }: { trigger: React.ReactNode; p
           setUrl(platform?.url ?? "");
         }
         if (!next) setError(null);
+        onOpenChange?.(next);
       }}
     >
       <DialogTrigger render={trigger as React.ReactElement} />
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent className="sm:max-w-sm shadow-2xl">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>{isEdit ? "Edit platform" : "Add platform"}</DialogTitle>

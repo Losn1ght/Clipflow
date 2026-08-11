@@ -21,6 +21,7 @@ export function ConfirmDialog({
   destructive = true,
   onConfirm,
   successMessage,
+  onOpenChange,
 }: {
   trigger: React.ReactNode;
   title: string;
@@ -30,6 +31,8 @@ export function ConfirmDialog({
   onConfirm: () => Promise<void>;
   /** Toast title shown after `onConfirm` resolves. Omit to skip the toast. */
   successMessage?: string;
+  /** Notified on open/close — lets a dialog this is nested inside hide itself while this is open. */
+  onOpenChange?: (open: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +58,7 @@ export function ConfirmDialog({
       onOpenChange={(next) => {
         setOpen(next);
         if (!next) setError(null);
+        onOpenChange?.(next);
       }}
     >
       <DialogTrigger render={trigger as React.ReactElement} />

@@ -370,7 +370,7 @@ export function DashboardClient({
               lowStockDayOptions={lowStockDayOptions}
               platforms={platforms}
               trigger={
-                <Button variant="outline" size="icon" aria-label="Dashboard settings">
+                <Button variant="outline" size="icon" aria-label="Settings">
                   <Settings />
                 </Button>
               }
@@ -385,13 +385,13 @@ export function DashboardClient({
           </TabsList>
           <TabsContent value="dashboard">
         {/* Full-width stack: no section is paired against one with different growth
-            behavior — Account inventory grows unbounded with account count, so it
+            behavior — Clip Stash grows unbounded with stash count, so it
             gets its own row instead of sharing a grid row with anything else. */}
         <div className="mt-6 flex flex-col gap-8">
             {/* Metrics banner — one continuous filmstrip, not three boxed cards */}
             <section className="slate-mark overflow-hidden rounded-xl border border-border bg-card">
               <div className="grid grid-cols-1 sm:grid-cols-3">
-                <MetricFrame label="Available clips" value={String(totalClips)} detail={`Across ${accounts.length} active account${accounts.length === 1 ? "" : "s"}`} icon={<Cloud className="size-5" />} />
+                <MetricFrame label="Available clips" value={String(totalClips)} detail={`Across ${accounts.length} active stash${accounts.length === 1 ? "" : "es"}`} icon={<Cloud className="size-5" />} />
                 <MetricFrame label="Workflow coverage" value={`${pad(coverage, 2)}d`} detail="Based on account-level targets" icon={<CheckCircle2 className="size-5" />} className="border-t border-border sm:border-t-0 sm:border-l" />
                 <MetricFrame
                   label="Monthly spend"
@@ -406,7 +406,7 @@ export function DashboardClient({
             {/* Inventory strip — horizontal contact-sheet, scan left to right */}
             <Card className="slate-mark shadow-none">
               <CardHeader className="flex-row items-start justify-between">
-                <div><CardTitle>Account inventory</CardTitle><CardDescription className="mt-1">Clip coverage is always calculated per account.</CardDescription></div>
+                <div><CardTitle>Clip Stash</CardTitle><CardDescription className="mt-1">Each stash tracks clip coverage for its own Drive folder.</CardDescription></div>
                 <div className="flex items-center gap-4">
                   <span className="inline-flex animate-pulse items-center gap-1.5 rounded-full border border-border bg-background/50 px-2 py-1 text-xs">
                     <span className="relative flex size-1.5">
@@ -415,14 +415,14 @@ export function DashboardClient({
                     </span>
                     <span className="timecode text-positive">Live</span>
                   </span>
-                  <AccountDialog clipTargetOptions={clipTargetOptions} trigger={<Button variant="outline" size="sm"><Plus /> Add account</Button>} />
+                  <AccountDialog clipTargetOptions={clipTargetOptions} trigger={<Button variant="outline" size="sm"><Plus /> Add stash</Button>} />
                 </div>
               </CardHeader>
               <CardContent>
                 {accounts.length === 0 ? (
                   <div className="flex flex-col items-center gap-3 py-8 text-center">
                     <p className="text-sm text-muted-foreground">No accounts yet.</p>
-                    <AccountDialog clipTargetOptions={clipTargetOptions} trigger={<Button variant="outline" size="sm"><Plus /> Add account</Button>} />
+                    <AccountDialog clipTargetOptions={clipTargetOptions} trigger={<Button variant="outline" size="sm"><Plus /> Add stash</Button>} />
                   </div>
                 ) : (
                   <div
@@ -868,12 +868,25 @@ function TaskCard({
         role="button"
         tabIndex={0}
         aria-label={`View "${task.title}"`}
-        onClick={() => setViewOpen(true)}
+        onClick={(event) => {
+          // TaskDialog/ConfirmDialog triggers below are portaled to
+          // document.body, so their popups aren't DOM descendants of this
+          // tile — but React still replays their synthetic events along the
+          // component tree. This containment check ignores any click that
+          // originated inside one of those portaled popups, while still
+          // catching genuine clicks on the tile's own visible content.
+          if (!event.currentTarget.contains(event.target as Node)) return;
+          setViewOpen(true);
+        }}
         onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            setViewOpen(true);
-          }
+          if (event.key !== "Enter" && event.key !== " ") return;
+          if (!event.currentTarget.contains(event.target as Node)) return;
+          // The drag handle is a real DOM descendant of the tile (not
+          // portaled), so the containment check above doesn't exclude it —
+          // exclude it explicitly so Space triggers drag-pickup, not the view dialog.
+          if ((event.target as Element).closest("button, a, input")) return;
+          event.preventDefault();
+          setViewOpen(true);
         }}
         className={`cursor-pointer rounded-lg border border-border bg-background p-3 outline-none transition-[opacity,colors,box-shadow] duration-200 hover:border-foreground/15 hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-ring/50 ${
           isMoving ? "opacity-60" : ""
