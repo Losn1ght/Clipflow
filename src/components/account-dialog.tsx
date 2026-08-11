@@ -104,7 +104,7 @@ export function AccountDialog({
       <DialogContent className="sm:max-w-md">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>{isEdit ? "Edit account" : "Add account"}</DialogTitle>
+            <DialogTitle>{isEdit ? "Edit stash" : "Add stash"}</DialogTitle>
             <DialogDescription>
               {isEdit ? "Update the account's target and Drive folder." : "Track a new Instagram account and its daily clip target."}
             </DialogDescription>
@@ -170,7 +170,7 @@ export function AccountDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={isPending}>
-              {isPending ? "Saving…" : isEdit ? "Save changes" : "Add account"}
+              {isPending ? "Saving…" : isEdit ? "Save changes" : "Add stash"}
             </Button>
           </DialogFooter>
         </form>
