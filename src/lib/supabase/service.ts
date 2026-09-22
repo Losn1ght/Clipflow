@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 
 /**
  * Server-only Supabase client authenticated with the service-role key. This BYPASSES
- * row-level security entirely — never import it into client components, never expose
+ * row-level security entirely - never import it into client components, never expose
  * its results to the browser, and never use it for tables the owner's RLS-scoped
  * session client can already read/write (accounts, campaigns, google_connections, etc.).
  *

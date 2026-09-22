@@ -36,7 +36,7 @@ export function AccountDialog({
   const [name, setName] = useState(account?.name ?? "");
   const [clipTarget, setClipTarget] = useState(String(account?.clipTargetPerDay ?? clipTargetOptions[0] ?? 3));
   // The account's current value might not be in the configured options list
-  // (e.g. it was set before the list was edited down) — keep it selectable.
+  // (e.g. it was set before the list was edited down) - keep it selectable.
   const availableClipTargets =
     account && !clipTargetOptions.includes(account.clipTargetPerDay)
       ? [...clipTargetOptions, account.clipTargetPerDay].sort((a, b) => a - b)

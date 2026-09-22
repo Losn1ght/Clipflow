@@ -5,10 +5,11 @@ import { fetchWarmupStates } from "@/lib/warmup-data";
 import { fetchSubscriptions } from "@/lib/subscriptions-data";
 import { fetchPrompts } from "@/lib/prompts-data";
 import { fetchResources } from "@/lib/resources-data";
+import { fetchEarningsGoal } from "@/lib/earnings-goal-data";
 import { DashboardClient } from "@/app/dashboard-client";
 
 // Renders per-request owner-scoped data (accounts, campaigns, subscriptions,
-// and "today" for the active-campaign filter / renewal badges) — never static.
+// and "today" for the active-campaign filter / renewal badges) - never static.
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
@@ -28,6 +29,7 @@ export default async function DashboardPage() {
   const subscriptions = await fetchSubscriptions(supabase, today);
   const prompts = await fetchPrompts(supabase);
   const resources = await fetchResources(supabase);
+  const earningsGoal = await fetchEarningsGoal(supabase);
 
   return (
     <DashboardClient
@@ -44,6 +46,7 @@ export default async function DashboardPage() {
       subscriptions={subscriptions}
       prompts={prompts}
       resources={resources}
+      earningsGoal={earningsGoal}
       today={today}
     />
   );

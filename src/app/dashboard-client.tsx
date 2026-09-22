@@ -35,21 +35,22 @@ import { CampaignDialog } from "@/components/campaign-dialog";
 import { SubscriptionDialog } from "@/components/subscription-dialog";
 import { PromptDialog } from "@/components/prompt-dialog";
 import { ResourceDialog } from "@/components/resource-dialog";
-import { ArchivesDialog } from "@/components/archives-dialog";
 import { TaskDialog } from "@/components/task-dialog";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { SettingsDialog } from "@/components/settings-dialog";
 import { WarmupTally } from "@/components/warmup-tally";
+import { EarningsGoalCard } from "@/components/earnings-goal-card";
 import { archiveAccount, archiveCampaign, archivePrompt, archiveResource, archiveSubscription, deleteTask, disconnectGoogleDrive, moveTaskStatus, syncDriveNow } from "@/app/actions";
 import type { DashboardAccount, DashboardCampaign, DashboardGoogleConnection, DashboardPlatform, DashboardTask } from "@/lib/dashboard-data";
 import type { WarmupState } from "@/lib/warmup-data";
 import type { DashboardSubscription } from "@/lib/subscriptions-data";
 import type { DashboardPrompt } from "@/lib/prompts-data";
 import type { DashboardResource } from "@/lib/resources-data";
+import type { DashboardEarningsGoal } from "@/lib/earnings-goal-data";
 import type { BillingCycle, TaskStatus } from "@/lib/validation";
 
 // Suffix shown next to the raw per-cycle cost, alongside the monthly-equivalent.
-// Monthly has no suffix — its raw cost and monthly-equivalent are the same number.
+// Monthly has no suffix - its raw cost and monthly-equivalent are the same number.
 const BILLING_CYCLE_SUFFIXES: Record<BillingCycle, string | null> = {
   weekly: "wk",
   monthly: null,
@@ -68,7 +69,7 @@ function pad(value: number, size = 4) {
   return String(value).padStart(size, "0");
 }
 
-// Explicit MM/DD/YYYY construction — avoids locale-dependent toLocaleDateString output.
+// Explicit MM/DD/YYYY construction - avoids locale-dependent toLocaleDateString output.
 function formatDate(isoDate: string) {
   const [year, month, day] = isoDate.split("-");
   return `${month}/${day}/${year}`;
@@ -91,7 +92,7 @@ function daysUntil(isoDate: string, today: string) {
 }
 
 // Only ever render a value as a clickable href if it's actually a safe http(s)
-// URL — some fields (e.g. campaign "Requirements") are free text by design, and
+// URL - some fields (e.g. campaign "Requirements") are free text by design, and
 // stored values could otherwise reach the DOM as a javascript:/data: URI.
 function safeHref(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -106,7 +107,7 @@ function safeHref(value: string | null | undefined): string | null {
 // Custom keyboard coordinate getter: the board's columns are separate droppable
 // zones (not a single sortable list), so dnd-kit's default coordinate getter
 // (which just nudges by pixels) can't hop a task between them. This mirrors
-// dnd-kit's own "multiple containers" keyboard example — arrow keys find the
+// dnd-kit's own "multiple containers" keyboard example - arrow keys find the
 // nearest droppable column in that direction and jump the virtual pointer to it.
 const columnKeyboardCoordinates: KeyboardCoordinateGetter = (event, { context }) => {
   const { active, collisionRect, droppableRects, droppableContainers } = context;
@@ -172,6 +173,7 @@ export function DashboardClient({
   subscriptions,
   prompts,
   resources,
+  earningsGoal,
   today,
 }: {
   accounts: DashboardAccount[];
@@ -187,6 +189,7 @@ export function DashboardClient({
   subscriptions: DashboardSubscription[];
   prompts: DashboardPrompt[];
   resources: DashboardResource[];
+  earningsGoal: DashboardEarningsGoal;
   today: string;
 }) {
   const [tasks, setTasks] = useState(initialTasks);
@@ -357,13 +360,6 @@ export function DashboardClient({
                 <Link2 /> Connect Google Drive
               </Button>
             )}
-            <ArchivesDialog
-              trigger={
-                <Button variant="outline" size="icon" aria-label="Archives">
-                  <Archive />
-                </Button>
-              }
-            />
             <SettingsDialog
               lowStockDays={lowStockDays}
               clipTargetOptions={clipTargetOptions}
@@ -385,25 +381,30 @@ export function DashboardClient({
           </TabsList>
           <TabsContent value="dashboard">
         {/* Full-width stack: no section is paired against one with different growth
-            behavior — Clip Stash grows unbounded with stash count, so it
+            behavior - Clip Stash grows unbounded with stash count, so it
             gets its own row instead of sharing a grid row with anything else. */}
         <div className="mt-6 flex flex-col gap-8">
-            {/* Metrics banner — one continuous filmstrip, not three boxed cards */}
-            <section className="slate-mark overflow-hidden rounded-xl border border-border bg-card">
-              <div className="grid grid-cols-1 sm:grid-cols-3">
-                <MetricFrame label="Available clips" value={String(totalClips)} detail={`Across ${accounts.length} active stash${accounts.length === 1 ? "" : "es"}`} icon={<Cloud className="size-5" />} />
-                <MetricFrame label="Workflow coverage" value={`${pad(coverage, 2)}d`} detail="Based on account-level targets" icon={<CheckCircle2 className="size-5" />} className="border-t border-border sm:border-t-0 sm:border-l" />
-                <MetricFrame
-                  label="Monthly spend"
-                  value={formatPeso(monthlyTotal)}
-                  detail={`${subscriptions.length} subscription${subscriptions.length === 1 ? "" : "s"}`}
-                  icon={<CreditCard className="size-5" />}
-                  className="border-t border-border sm:border-t-0 sm:border-l"
-                />
-              </div>
-            </section>
+            {/* Metrics banner + earnings widget - same row, aligned heights; the
+                widget sits beside the filmstrip instead of stacked above it. */}
+            <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+              <section className="slate-mark overflow-hidden rounded-xl border border-border bg-card">
+                <div className="grid grid-cols-1 sm:grid-cols-3">
+                  <MetricFrame label="Available clips" value={String(totalClips)} detail={`Across ${accounts.length} active stash${accounts.length === 1 ? "" : "es"}`} icon={<Cloud className="size-5" />} />
+                  <MetricFrame label="Workflow coverage" value={`${pad(coverage, 2)}d`} detail="Based on account-level targets" icon={<CheckCircle2 className="size-5" />} className="border-t border-border sm:border-t-0 sm:border-l" />
+                  <MetricFrame
+                    label="Monthly spend"
+                    value={formatPeso(monthlyTotal)}
+                    detail={`${subscriptions.length} subscription${subscriptions.length === 1 ? "" : "s"}`}
+                    icon={<CreditCard className="size-5" />}
+                    className="border-t border-border sm:border-t-0 sm:border-l"
+                  />
+                </div>
+              </section>
 
-            {/* Inventory strip — horizontal contact-sheet, scan left to right */}
+              <EarningsGoalCard earningsGoal={earningsGoal} />
+            </div>
+
+            {/* Inventory strip - horizontal contact-sheet, scan left to right */}
             <Card className="slate-mark shadow-none">
               <CardHeader className="flex-row items-start justify-between">
                 <div><CardTitle>Clip Stash</CardTitle><CardDescription className="mt-1">Each stash tracks clip coverage for its own Drive folder.</CardDescription></div>
@@ -455,7 +456,7 @@ export function DashboardClient({
                               <ConfirmDialog
                                 trigger={<Button variant="ghost" size="icon-xs" aria-label={`Archive ${account.name}`}><Archive /></Button>}
                                 title="Archive account?"
-                                description={`${account.name} will be hidden from the active dashboard. This can be reversed later from the database.`}
+                                description={`${account.name} will be hidden from the active dashboard. You can restore or delete it afterwards from the Archives.`}
                                 confirmLabel="Archive"
                                 onConfirm={() => archiveAccount(account.id)}
                                 successMessage={`${account.name} archived`}
@@ -464,7 +465,7 @@ export function DashboardClient({
                           </div>
                           <div className="mt-3 flex items-center justify-between gap-3">
                             <Badge variant={account.tone}>{account.statusLabel}</Badge>
-                            <p className="timecode text-right text-sm font-semibold">{account.clipCount !== null ? `${account.clipCount} clips` : "—"}</p>
+                            <p className="timecode text-right text-sm font-semibold">{account.clipCount !== null ? `${account.clipCount} clips` : "-"}</p>
                           </div>
                           <SprocketMeter days={account.coverageDays ?? 0} label={`${account.name} clip coverage`} className="mt-4" />
                         </div>
@@ -474,7 +475,7 @@ export function DashboardClient({
               </CardContent>
             </Card>
 
-          {/* Active campaigns + subscriptions — paired side-by-side; both cap at the
+          {/* Active campaigns + subscriptions - paired side-by-side; both cap at the
               same max-h-72 scroll height, so this pairing stays balanced at any scale. */}
           <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
           <Card className="slate-mark shadow-none">
@@ -637,7 +638,7 @@ export function DashboardClient({
           </div>
         </div>
 
-        {/* Resources — full width, own row between the top grid and the Work Board */}
+        {/* Resources - full width, own row between the top grid and the Work Board */}
         <div className="mt-8">
           <div className="mb-3 flex items-end justify-between">
             <div><h2 className="font-heading text-2xl font-bold tracking-tight">Resources</h2><p className="mt-1 text-sm text-muted-foreground">Tools and links for the clipping workflow.</p></div>
@@ -684,7 +685,7 @@ export function DashboardClient({
           )}
         </div>
 
-        {/* Work Board — kanban, full width below the metrics/inventory/reel-rail row */}
+        {/* Work Board - kanban, full width below the metrics/inventory/reel-rail row */}
         <div className="mt-8">
           <div className="mb-3 flex items-end justify-between">
             <div><h2 className="font-heading text-2xl font-bold tracking-tight">Work Board</h2><p className="mt-1 text-sm text-muted-foreground">Keep campaign work visible from source to submission.</p></div>
@@ -698,7 +699,16 @@ export function DashboardClient({
               <TaskDialog campaigns={campaigns} trigger={<Button variant="outline" size="sm"><Plus /> Add task</Button>} />
             </div>
           ) : (
+            // dnd-kit names its aria-describedby element from a module-global
+            // counter: `DndDescribedBy-${n}`, where n increments on every
+            // DndContext render in the process. On the server that counter is
+            // shared across requests and has already advanced, while the client
+            // starts fresh at 0 - so the two renders disagree and React warns
+            // about the aria-describedby hydration mismatch. Passing a stable id
+            // short-circuits the counter (useUniqueId returns the value as-is),
+            // making the id deterministic and the ids match.
             <DndContext
+              id="work-board"
               sensors={sensors}
               collisionDetection={closestCorners}
               onDragStart={handleDragStart}
@@ -752,7 +762,7 @@ export function DashboardClient({
           )}
         </div>
 
-        {/* Prompt Guide — reusable prompts for the clipping workflow, full width below the Work Board */}
+        {/* Prompt Guide - reusable prompts for the clipping workflow, full width below the Work Board */}
         <div className="mt-8">
           <div className="mb-3 flex items-end justify-between">
             <div><h2 className="font-heading text-2xl font-bold tracking-tight">Prompt Guide</h2><p className="mt-1 text-sm text-muted-foreground">Reusable prompts for your clipping videos.</p></div>
@@ -871,7 +881,7 @@ function TaskCard({
         onClick={(event) => {
           // TaskDialog/ConfirmDialog triggers below are portaled to
           // document.body, so their popups aren't DOM descendants of this
-          // tile — but React still replays their synthetic events along the
+          // tile - but React still replays their synthetic events along the
           // component tree. This containment check ignores any click that
           // originated inside one of those portaled popups, while still
           // catching genuine clicks on the tile's own visible content.
@@ -882,7 +892,7 @@ function TaskCard({
           if (event.key !== "Enter" && event.key !== " ") return;
           if (!event.currentTarget.contains(event.target as Node)) return;
           // The drag handle is a real DOM descendant of the tile (not
-          // portaled), so the containment check above doesn't exclude it —
+          // portaled), so the containment check above doesn't exclude it -
           // exclude it explicitly so Space triggers drag-pickup, not the view dialog.
           if ((event.target as Element).closest("button, a, input")) return;
           event.preventDefault();

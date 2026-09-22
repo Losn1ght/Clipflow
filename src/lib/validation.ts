@@ -6,7 +6,7 @@ export const clipTargetSchema = z.int().min(1).max(30);
 export const lowStockDaysSchema = z.int().min(1).max(30);
 export const clipTargetOptionsSchema = z.array(clipTargetSchema).min(1).max(12);
 export const lowStockDayOptionsSchema = z.array(lowStockDaysSchema).min(1).max(12);
-// z.url() alone accepts javascript:/data:/vbscript: URIs — pin the protocol so a
+// z.url() alone accepts javascript:/data:/vbscript: URIs - pin the protocol so a
 // stored value can never execute when later rendered as an <a href>.
 export const httpUrlSchema = z.url({ protocol: /^https?$/, hostname: z.regexes.domain }).max(2_048);
 export const optionalUrlSchema = httpUrlSchema.optional().or(z.literal(""));
@@ -22,7 +22,7 @@ export const accountInputSchema = z.object({
 
 export const campaignInputSchema = z.object({
   name: z.string().trim().min(1).max(160),
-  // Free text by design (not just a URL) — see safeHref() at the render site,
+  // Free text by design (not just a URL) - see safeHref() at the render site,
   // which is what actually prevents this from ever executing as a link.
   requirementsUrl: z.string().trim().max(2_048).optional().or(z.literal("")),
   submissionUrl: httpUrlSchema,
@@ -71,6 +71,9 @@ export const resourceInputSchema = z.object({
   name: z.string().trim().min(1).max(100),
   url: httpUrlSchema,
 });
+
+export const earningsGoalTargetSchema = z.coerce.number().min(0.01).max(1_000_000_000);
+export const earningsGoalCurrentSchema = z.coerce.number().min(0).max(1_000_000_000);
 
 export type AccountInput = z.infer<typeof accountInputSchema>;
 export type CampaignInput = z.infer<typeof campaignInputSchema>;

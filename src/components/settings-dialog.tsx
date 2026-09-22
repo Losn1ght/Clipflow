@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Pencil, Plus, Trash2, X } from "lucide-react";
+import { Archive, History, Pencil, Plus, Trash2, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +17,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { ArchivesDialog } from "@/components/archives-dialog";
+import { LogsDialog } from "@/components/logs-dialog";
 import {
   createPlatform,
   deletePlatform,
@@ -136,7 +138,7 @@ export function SettingsDialog({
 
   // PlatformFormDialog/ConfirmDialog below are nested inside this dialog's
   // content. Base UI suppresses their own backdrop while nested, but doesn't
-  // hide this dialog's own box — so without this, opening "Add platform"
+  // hide this dialog's own box - so without this, opening "Add platform"
   // would show the Settings box still sitting behind it. Hide it while any
   // nested dialog is open instead.
   const [nestedOpen, setNestedOpen] = useState(false);
@@ -146,7 +148,7 @@ export function SettingsDialog({
   const [clipTargetChoices, setClipTargetChoices] = useState(clipTargetOptions);
 
   // The currently selected threshold might not be in the edited choices list
-  // yet (e.g. it was just removed) — keep it selectable until the form saves.
+  // yet (e.g. it was just removed) - keep it selectable until the form saves.
   const availableLowStockDays = lowStockDayChoices.includes(Number(days))
     ? lowStockDayChoices
     : [...lowStockDayChoices, Number(days)].sort((a, b) => a - b);
@@ -286,6 +288,28 @@ export function SettingsDialog({
             )}
           </div>
 
+          <div className="mt-5 space-y-2.5 border-t border-border pt-4">
+            <p className="eyebrow">Data</p>
+            <div className="flex flex-wrap gap-2">
+              <ArchivesDialog
+                trigger={
+                  <Button type="button" variant="outline" size="sm">
+                    <Archive /> Archives
+                  </Button>
+                }
+                onOpenChange={setNestedOpen}
+              />
+              <LogsDialog
+                trigger={
+                  <Button type="button" variant="outline" size="sm">
+                    <History /> Activity log
+                  </Button>
+                }
+                onOpenChange={setNestedOpen}
+              />
+            </div>
+          </div>
+
           <DialogFooter className="mt-4">
             <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isPending}>
               Cancel
@@ -307,7 +331,7 @@ function PlatformFormDialog({
 }: {
   trigger: React.ReactNode;
   platform?: DashboardPlatform;
-  /** Notified on open/close — lets SettingsDialog hide itself while this is open. */
+  /** Notified on open/close - lets SettingsDialog hide itself while this is open. */
   onOpenChange?: (open: boolean) => void;
 }) {
   const isEdit = Boolean(platform);

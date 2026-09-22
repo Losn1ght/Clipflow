@@ -31,7 +31,7 @@ export function ConfirmDialog({
   onConfirm: () => Promise<void>;
   /** Toast title shown after `onConfirm` resolves. Omit to skip the toast. */
   successMessage?: string;
-  /** Notified on open/close — lets a dialog this is nested inside hide itself while this is open. */
+  /** Notified on open/close - lets a dialog this is nested inside hide itself while this is open. */
   onOpenChange?: (open: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);

@@ -3,7 +3,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service";
 import { decryptSecret, fromBytea } from "@/lib/crypto";
 
 // Shared Drive inventory sync engine. Both the daily Vercel Cron route and the
-// manual "Sync Drive" server action call `runSyncForAllMappings()` — there is only
+// manual "Sync Drive" server action call `runSyncForAllMappings()` - there is only
 // one sync implementation.
 //
 // Client choice: this module uses the service-role client for every read/write
@@ -61,8 +61,8 @@ class DriveApiError extends Error {
 }
 
 /** Thrown specifically when Google rejects a refresh token as invalid/expired/revoked
- * (HTTP 400, `error: "invalid_grant"`). This is a connection-level failure — the token
- * is permanently dead until the owner reconnects — distinct from a transient Drive API
+ * (HTTP 400, `error: "invalid_grant"`). This is a connection-level failure - the token
+ * is permanently dead until the owner reconnects - distinct from a transient Drive API
  * hiccup, which should stay a per-run failure. */
 class InvalidGrantError extends Error {
   constructor(message: string) {
@@ -126,7 +126,7 @@ async function exchangeForAccessToken(refreshToken: string): Promise<string> {
         }
       } catch (err) {
         if (err instanceof InvalidGrantError) throw err;
-        // Body wasn't JSON (or didn't match) — fall through to the generic error below.
+        // Body wasn't JSON (or didn't match) - fall through to the generic error below.
       }
     }
     throw new Error(`Unable to refresh the Google access token (status ${response.status}).`);
