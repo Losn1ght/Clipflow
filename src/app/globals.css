@@ -59,7 +59,7 @@
   --font-app-mono: "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
   --font-display: "Space Grotesk", var(--font-app-sans);
 
-  /* Night Splice — light-mode fallback (app renders dark-only, kept for completeness) */
+  /* Night Splice - light-mode fallback (app renders dark-only, kept for completeness) */
   --room: oklch(0.97 0.006 95);
   --paper: oklch(1 0 0);
   --ink: oklch(0.16 0.014 265);
@@ -106,7 +106,7 @@
 }
 
 .dark {
-  /* Night Splice — a cutting room at 2am */
+  /* Night Splice - a cutting room at 2am */
   --room: oklch(0.2008 0.0124 270.73);      /* #14161C */
   --paper: oklch(0.2445 0.0178 270.59);     /* #1D2029 */
   --ink: oklch(0.9397 0.0096 93.57);        /* #EDEBE4 */
@@ -128,10 +128,10 @@
   --muted-foreground: var(--dim);
   --accent: oklch(0.28 0.016 265);
   --accent-foreground: var(--ink);
-  --destructive: oklch(0.6368 0.2078 25.33); /* #EF4444 — cold red, distinct from --splice */
+  --destructive: oklch(0.6368 0.2078 25.33); /* #EF4444 - cold red, distinct from --splice */
   --warning: var(--tungsten);
   --warning-foreground: var(--room);
-  --positive: oklch(0.792 0.209 151.71); /* emerald green — distinct from --splice/--tungsten */
+  --positive: oklch(0.792 0.209 151.71); /* emerald green - distinct from --splice/--tungsten */
   --positive-foreground: var(--room);
   --border: color-mix(in oklch, var(--ink) 10%, transparent);
   --input: color-mix(in oklch, var(--ink) 14%, transparent);
@@ -164,7 +164,7 @@
 }
 
 @layer components {
-  /* Eyebrow labels — section identity tags ("INVENTORY LOG", "CUTTING QUEUE") */
+  /* Eyebrow labels - section identity tags ("INVENTORY LOG", "CUTTING QUEUE") */
   .eyebrow {
     font-family: var(--font-display);
     font-weight: 600;
@@ -175,14 +175,14 @@
     color: var(--dim);
   }
 
-  /* Timecode register — every quantity/time value renders through this convention */
+  /* Timecode register - every quantity/time value renders through this convention */
   .timecode {
     font-family: var(--font-app-mono);
     letter-spacing: 0.04em;
     font-variant-numeric: tabular-nums;
   }
 
-  /* Slate mark — clapperboard corner registration ticks on key log cards */
+  /* Slate mark - clapperboard corner registration ticks on key log cards */
   .slate-mark {
     position: relative;
   }

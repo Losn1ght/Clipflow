@@ -12,7 +12,7 @@ It exists to answer one question at a glance: **which accounts are about to run 
 - **Subscriptions** - a recurring-cost tracker for the clipping stack (editing tools, stock footage, VPNs, etc.), with weekly/monthly/quarterly/yearly billing cycles normalized into a single "Monthly spend" figure, and a renewal-date badge that glows as a due date approaches.
 - **Prompts** - a reusable prompt library for the clipping workflow, with one-click copy-to-clipboard and a maximize toggle for editing longer prompts.
 - **Resources** - a link library for clipping tools and references (name + URL), one click away from the site itself.
-- **Archives** - nothing is ever hard-deleted. Every "Archive" action just hides a row; the Archives view lists everything currently archived across accounts, campaigns, subscriptions, prompts, and resources, with a one-click Restore.
+- **Archives** - every "Archive" action only hides a row, so archiving stays reversible. The Archives view lists everything currently archived across accounts, campaigns, subscriptions, prompts, and resources, with a one-click Restore - and an opt-in permanent delete for rows you want gone for good.
 - **Personalization** - the dropdown choices for clip target and low-stock-day thresholds are editable lists managed in Settings, not hardcoded values.
 - **Warm-up tally** - a manual daily counter for the multi-day account warm-up process (likes/comments/reposts/follows against day-specific targets), gated by a "watch reels between actions" pacing rule.
 - **Google Drive sync** - a resumable, rate-limited background sync job (plus a manual trigger) that keeps clip counts current without ever touching file contents or any social platform's API.

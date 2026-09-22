@@ -11,6 +11,8 @@ import {
   campaignInputSchema,
   clipTargetOptionsSchema,
   driveFolderMappingInputSchema,
+  earningsGoalCurrentSchema,
+  earningsGoalTargetSchema,
   lowStockDayOptionsSchema,
   lowStockDaysSchema,
   platformInputSchema,
@@ -548,6 +550,186 @@ export async function fetchArchivedItems(): Promise<ArchivedItems> {
   };
 }
 
+// Hard deletes live here rather than beside each entity's archive/restore action
+// because they share one invariant: they are only reachable from the Archives
+// view, and every one of them filters on `archived_at` so a still-active row can
+// never be destroyed even if the action is called directly with its id.
+//
+// Blast radius comes from the schema's foreign keys, not from this code:
+//   - account: cascades to drive_folder_mappings (and through it
+//     inventory_snapshots and sync_runs), account_campaigns, in_app_alerts, and
+//     account_warmup_states; tasks.account_id is set to null.
+//   - campaign: cascades to account_campaigns; tasks.campaign_id is set to null.
+//   - subscription, prompt, resource: nothing references these.
+
+export async function deleteAccount(accountId: string) {
+  const id = idSchema.parse(accountId);
+  const { supabase } = await requireOwner();
+
+  const { error } = await supabase.from("accounts").delete().eq("id", id).not("archived_at", "is", null);
+  if (error) throw new Error("Unable to delete account.");
+
+  revalidatePath("/");
+}
+
+export async function deleteCampaign(campaignId: string) {
+  const id = idSchema.parse(campaignId);
+  const { supabase } = await requireOwner();
+
+  const { error } = await supabase.from("campaigns").delete().eq("id", id).not("archived_at", "is", null);
+  if (error) throw new Error("Unable to delete campaign.");
+
+  revalidatePath("/");
+}
+
+export async function deleteSubscription(subscriptionId: string) {
+  const id = idSchema.parse(subscriptionId);
+  const { supabase } = await requireOwner();
+
+  const { error } = await supabase.from("subscriptions").delete().eq("id", id).not("archived_at", "is", null);
+  if (error) throw new Error("Unable to delete subscription.");
+
+  revalidatePath("/");
+}
+
+export async function deletePrompt(promptId: string) {
+  const id = idSchema.parse(promptId);
+  const { supabase } = await requireOwner();
+
+  const { error } = await supabase.from("prompts").delete().eq("id", id).not("archived_at", "is", null);
+  if (error) throw new Error("Unable to delete prompt.");
+
+  revalidatePath("/");
+}
+
+export async function deleteResource(resourceId: string) {
+  const id = idSchema.parse(resourceId);
+  const { supabase } = await requireOwner();
+
+  const { error } = await supabase.from("resources").delete().eq("id", id).not("archived_at", "is", null);
+  if (error) throw new Error("Unable to delete resource.");
+
+  revalidatePath("/");
+}
+
+// Bulk counterparts used by the Archives view's select-all. Both take the same
+// { section, id } shape rather than one argument per entity so a mixed selection
+// crosses the wire as a single request instead of N sequential Server Actions.
+//
+// Not atomic: sections are written one at a time, so a failure partway through
+// leaves earlier sections already committed. Callers must reload the list rather
+// than assume the whole selection applied.
+const archiveSelectionSchema = z
+  .array(z.object({ section: z.enum(["accounts", "campaigns", "subscriptions", "prompts", "resources"]), id: z.uuid() }))
+  .min(1)
+  .max(1000);
+
+function groupSelection(rawSelection: unknown) {
+  const grouped = new Map<string, string[]>();
+  for (const { section, id } of archiveSelectionSchema.parse(rawSelection)) {
+    const ids = grouped.get(section);
+    if (ids) ids.push(id);
+    else grouped.set(section, [id]);
+  }
+  return grouped;
+}
+
+export async function restoreArchivedItems(rawSelection: unknown) {
+  const grouped = groupSelection(rawSelection);
+  const { supabase } = await requireOwner();
+
+  for (const [section, ids] of grouped) {
+    const { error } = await supabase.from(section).update({ archived_at: null }).in("id", ids);
+    if (error) throw new Error("Unable to restore archived items.");
+  }
+
+  revalidatePath("/");
+}
+
+export async function deleteArchivedItems(rawSelection: unknown) {
+  const grouped = groupSelection(rawSelection);
+  const { supabase } = await requireOwner();
+
+  for (const [section, ids] of grouped) {
+    const { error } = await supabase.from(section).delete().in("id", ids).not("archived_at", "is", null);
+    if (error) throw new Error("Unable to delete archived items.");
+  }
+
+  revalidatePath("/");
+}
+
+// ---------------------------------------------------------------------------
+// Activity log
+// ---------------------------------------------------------------------------
+
+export interface ActivityLogEntry {
+  id: string;
+  action: "created" | "updated" | "archived" | "restored" | "deleted";
+  /** Source table name, e.g. "accounts". */
+  entity: string;
+  entityId: string;
+  entityName: string;
+  /** True when the write had no user context: the service-role sync job or the SQL editor. */
+  systemActor: boolean;
+  occurredAt: string;
+}
+
+export interface ActivityLogs {
+  /**
+   * "unavailable" means the activity_logs migration has not been applied to this
+   * Supabase project yet. The dialog shows setup instructions rather than
+   * treating a missing table as a failure.
+   */
+  status: "ok" | "unavailable";
+  entries: ActivityLogEntry[];
+}
+
+type ActivityLogRow = {
+  id: string;
+  action: ActivityLogEntry["action"];
+  entity: string;
+  entity_id: string;
+  entity_name: string;
+  actor: string | null;
+  occurred_at: string;
+};
+
+// Bounded on purpose: the log grows without limit and the modal only ever shows
+// the newest slice, so never pull the whole table into the client.
+const ACTIVITY_LOG_LIMIT = 200;
+
+export async function fetchActivityLogs(): Promise<ActivityLogs> {
+  const { supabase } = await requireOwner();
+
+  const { data, error } = await supabase
+    .from("activity_logs")
+    .select("id, action, entity, entity_id, entity_name, actor, occurred_at")
+    .order("occurred_at", { ascending: false })
+    .limit(ACTIVITY_LOG_LIMIT);
+
+  if (error) {
+    // 42P01 = undefined_table (Postgres), PGRST205 = table missing from the
+    // PostgREST schema cache. Both mean "migration not applied yet".
+    if (error.code === "42P01" || error.code === "PGRST205") {
+      return { status: "unavailable", entries: [] };
+    }
+    throw new Error("Unable to load the activity log.");
+  }
+
+  return {
+    status: "ok",
+    entries: ((data ?? []) as ActivityLogRow[]).map((row) => ({
+      id: row.id,
+      action: row.action,
+      entity: row.entity,
+      entityId: row.entity_id,
+      entityName: row.entity_name,
+      systemActor: row.actor === null,
+      occurredAt: row.occurred_at,
+    })),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Google Drive connection
 // ---------------------------------------------------------------------------
@@ -638,6 +820,42 @@ export async function updateLowStockDayOptions(rawOptions: unknown) {
 
   const { error } = await supabase.from("app_config").update({ low_stock_day_options: unique }).eq("singleton", true);
   if (error) throw new Error("Unable to update low-stock day options.");
+
+  revalidatePath("/");
+}
+
+// ---------------------------------------------------------------------------
+// Earnings goal
+// ---------------------------------------------------------------------------
+
+export async function updateEarningsGoalTarget(rawTarget: unknown) {
+  const targetAmount = earningsGoalTargetSchema.parse(rawTarget);
+  const { supabase } = await requireOwner();
+
+  const { error } = await supabase.from("earnings_goal").update({ target_amount: targetAmount }).eq("singleton", true);
+  if (error) throw new Error("Unable to update earnings goal.");
+
+  revalidatePath("/");
+}
+
+export async function updateCurrentEarnings(rawCurrent: unknown) {
+  const currentAmount = earningsGoalCurrentSchema.parse(rawCurrent);
+  const { supabase } = await requireOwner();
+
+  const { error } = await supabase.from("earnings_goal").update({ current_amount: currentAmount }).eq("singleton", true);
+  if (error) throw new Error("Unable to update current earnings.");
+
+  revalidatePath("/");
+}
+
+export async function resetEarningsGoal() {
+  const { supabase } = await requireOwner();
+
+  const { error } = await supabase
+    .from("earnings_goal")
+    .update({ target_amount: 1000, current_amount: 0 })
+    .eq("singleton", true);
+  if (error) throw new Error("Unable to reset earnings goal.");
 
   revalidatePath("/");
 }

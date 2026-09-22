@@ -146,7 +146,7 @@ function deriveState({
   if (isActiveSync) return { state: "syncing", clipCount };
 
   // A failed run only marks the account as "failed" if no snapshot has landed
-  // since that run completed — otherwise a later successful sync superseded it.
+  // since that run completed - otherwise a later successful sync superseded it.
   const failedIsNewest =
     latestSyncRun?.status === "failed" &&
     (!latestSnapshot ||

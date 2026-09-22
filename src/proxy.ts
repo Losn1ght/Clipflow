@@ -19,7 +19,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // Fail closed: if required env vars are missing, don't silently skip the auth
-  // check — send the request to /login instead of letting it through.
+  // check - send the request to /login instead of letting it through.
   if (!url || !key || !ownerId || !ownerEmail) {
     const destination = request.nextUrl.clone();
     destination.pathname = "/login";
@@ -50,7 +50,7 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   // api/cron/* is excluded here (not added to publicPaths, which would read as
-  // "no auth needed") — it has its own CRON_SECRET bearer-token check in the
+  // "no auth needed") - it has its own CRON_SECRET bearer-token check in the
   // route handler, and Vercel Cron never sends a session cookie, so this
   // middleware's owner check would otherwise redirect every scheduled run.
   matcher: ["/((?!api/cron|_next/static|_next/image|favicon.ico).*)"],

@@ -29,7 +29,7 @@ const METRIC_ROWS: { metric: WarmupMetric; label: string }[] = [
 function formatTarget(target: { min: number; max: number } | { exact: number } | null) {
   if (!target) return null;
   if ("exact" in target) return `exactly ${target.exact}`;
-  return `${target.min}–${target.max}`;
+  return `${target.min}-${target.max}`;
 }
 
 function targetState(count: number, target: { min: number; max: number } | { exact: number } | null): "none" | "under" | "met" | "over" {

@@ -25,7 +25,7 @@ type SubscriptionRow = {
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
-// Months per billing cycle — monthlyCost = cost / CYCLE_MONTHS[cycle]. Weekly
+// Months per billing cycle - monthlyCost = cost / CYCLE_MONTHS[cycle]. Weekly
 // uses a 30-day month approximation (30/7); the others are exact month counts.
 const CYCLE_MONTHS: Record<BillingCycle, number> = {
   weekly: 7 / 30,

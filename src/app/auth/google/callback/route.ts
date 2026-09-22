@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
   const stateDigest = createHash("sha256").update(state).digest("hex");
 
   // Atomically consume the attempt: the update only matches (and returns) a row if it
-  // is still unused and unexpired, which is how replay/race attempts are rejected —
+  // is still unused and unexpired, which is how replay/race attempts are rejected -
   // a second request for the same state finds zero matching rows here.
   const { data: consumedRows, error: consumeError } = await serviceClient
     .from("google_oauth_attempts")
